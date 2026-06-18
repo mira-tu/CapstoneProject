@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Route, Routes } from 'react-router-dom';
 import AdminWrapper from './layouts/AdminWrapper';
-import AdminLogin from './pages/AdminLogin';
+import AdminLogin from './auth/AdminLogin';
+import ForgotPassword from './auth/ForgotPassword';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminSettings from './pages/AdminSettings';
 import PublicDashboard from './pages/PublicDashboard';
@@ -24,6 +25,8 @@ export default function App() {
     switch (currentView) {
       case 'login':
         return <AdminLogin onViewChange={setCurrentView} />;
+      case 'forgot-password':
+        return <ForgotPassword onViewChange={setCurrentView} />;
       case 'dashboard':
         return <AdminDashboard tables={tables} />;
       case 'logs':
@@ -66,9 +69,11 @@ export default function App() {
         <Route
           path="*"
           element={
-            currentView === 'login' || currentView === 'lobby' ? (
+            currentView === 'login' || currentView === 'lobby' || currentView === 'forgot-password' ? (
               currentView === 'login' ? (
                 <AdminLogin onViewChange={setCurrentView} />
+              ) : currentView === 'forgot-password' ? (
+                <ForgotPassword onViewChange={setCurrentView} />
               ) : (
                 <PublicDashboard tables={tables} onViewChange={setCurrentView} />
               )
