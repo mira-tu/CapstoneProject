@@ -20,34 +20,34 @@ const TableCard = ({ table, isAdmin }) => {
   const extraSeats = Math.max(0, table.occupied - table.capacity);
 
   return (
-    <div className={`relative border-2 rounded-xl p-3 flex flex-col items-center justify-center min-h-[130px] transition-all ${currentColors}`}>
-      <h4 className="text-lg font-bold">{table.id}</h4>
-      <span className="mt-1 font-semibold tracking-wider uppercase text-[10px]">{table.status}</span>
+    <div className={`relative flex min-h-[96px] flex-col items-center justify-center rounded-xl border-2 p-2 text-center transition-all ${currentColors}`}>
+      <h4 className="text-sm font-bold">{table.id}</h4>
+      <span className="mt-0.5 text-[9px] font-semibold uppercase tracking-wider">{table.status}</span>
 
       {isAdmin ? (
-        <div className="mt-2 w-full border-t border-black/10 pt-2 text-center text-xs">
+        <div className="mt-1 w-full border-t border-black/10 pt-1 text-center text-[10px]">
           <p>{table.occupied} / {table.capacity} Seats</p>
-          <p className="mt-1 font-medium opacity-80">
+          <p className="mt-0.5 font-medium opacity-80">
             {table.auto ? `Auto: ${table.conf}% Conf.` : 'Manual Override'}
           </p>
         </div>
       ) : (
         <div className="mt-1 text-center">
-          <p className="text-sm font-semibold">{table.occupied} / {table.capacity}</p>
+          <p className="text-xs font-semibold">{table.occupied} / {table.capacity}</p>
           {isMerged && (
-            <div className="mt-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-300">
+            <div className="mt-1 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-semibold text-amber-300">
               {extraSeats > 0 ? `Merged +${extraSeats}` : 'Merged'}
             </div>
           )}
           {!isMerged && (
-            <p className="mt-1 text-[10px] opacity-80">
+            <p className="mt-0.5 text-[9px] opacity-80">
               {table.status === 'vacant'
                 ? 'Ready now'
                 : table.status === 'partial'
                   ? 'Limited seats'
                   : table.status === 'full'
-                    ? 'Currently occupied'
-                    : 'Temporarily closed'}
+                    ? 'Occupied'
+                    : 'Closed'}
             </p>
           )}
         </div>

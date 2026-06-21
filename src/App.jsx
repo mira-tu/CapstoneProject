@@ -15,10 +15,10 @@ export default function App() {
   const [selectedTableId, setSelectedTableId] = useState('T01');
 
   const [tables, setTables] = useState([
-    { id: 'T01', status: 'vacant', capacity: 4, occupied: 0, conf: 96, auto: true },
-    { id: 'T02', status: 'full', capacity: 4, occupied: 4, conf: 91, auto: true },
-    { id: 'T03', status: 'maintenance', capacity: 2, occupied: 0, conf: null, auto: false },
-    { id: 'T04', status: 'partial', capacity: 4, occupied: 2, conf: 89, auto: true },
+    { id: 'T01', label: 'Window Booth', floor: 1, status: 'vacant', capacity: 4, occupied: 0, conf: 96, auto: true },
+    { id: 'T02', label: 'Center Table', floor: 1, status: 'full', capacity: 4, occupied: 4, conf: 91, auto: true },
+    { id: 'T03', label: 'Bar Counter', floor: 2, status: 'maintenance', capacity: 2, occupied: 0, conf: null, auto: false },
+    { id: 'T04', label: 'Corner Booth', floor: 1, status: 'partial', capacity: 4, occupied: 2, conf: 89, auto: true },
   ]);
 
   const renderAdminView = () => {
@@ -48,8 +48,11 @@ export default function App() {
         return (
           <TableManagement
             tables={tables}
-            onAdd={newTable => setTables([...tables, newTable])}
-            onDelete={id => setTables(tables.filter(t => t.id !== id))}
+            onAdd={newTable => setTables(prev => [...prev, newTable])}
+            onDelete={id => setTables(prev => prev.filter(t => t.id !== id))}
+            onUpdate={updatedTable =>
+              setTables(prev => prev.map(t => (t.id === updatedTable.id ? updatedTable : t)))
+            }
           />
         );
       case 'analytics':
@@ -60,7 +63,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 font-sans text-slate-800">
+    <div className="h-screen overflow-hidden bg-slate-100 font-sans text-slate-800">
       <Routes>
         <Route
           path="/public"

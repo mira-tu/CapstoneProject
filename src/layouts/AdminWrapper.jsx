@@ -26,26 +26,38 @@ const AdminWrapper = ({ children, currentView, onViewChange }) => {
   return (
     <div className="flex h-screen overflow-hidden">
       <aside className={`${isOpen ? 'w-64' : 'w-20'} bg-slate-900 text-slate-300 flex flex-col transition-all duration-300 ease-in-out`}>
-        <div className={`border-b border-slate-800 flex items-center ${isOpen ? 'justify-between p-4' : 'justify-center p-3'}`}>
-          {isOpen && (
-            <h1 className="text-2xl font-bold text-white tracking-wider flex items-center gap-2">
-              <img src={tableyeLogo} alt="Tableye Logo" className="h-8 w-8 rounded-full object-cover" />TABLEYE
-            </h1>
+        <div className={`border-b border-slate-800 ${isOpen ? 'p-4' : 'p-3'}`}>
+          {isOpen ? (
+            <div className="flex flex-col">
+              <div className="flex items-center justify-between">
+                <h1 className="flex items-center gap-2 text-2xl font-bold tracking-wider text-white">
+                  <img src={tableyeLogo} alt="Tableye Logo" className="h-8 w-8 rounded-full object-cover" />
+                  TABLEYE
+                </h1>
+                <button
+                  onClick={() => setIsOpen(!isOpen)}
+                  className="p-2 rounded-lg text-slate-300 hover:bg-slate-800 transition-colors duration-200 ease-in-out"
+                  aria-label="Toggle sidebar"
+                >
+                  <Menu size={18} />
+                </button>
+              </div>
+              <p className="mt-2 px-1 text-xs text-slate-500">Smart Occupancy System</p>
+            </div>
+          ) : (
+            <div className="flex justify-center">
+              <button
+                onClick={() => setIsOpen(!isOpen)}
+                className="p-2 rounded-lg text-slate-300 hover:bg-slate-800 transition-colors duration-200 ease-in-out"
+                aria-label="Toggle sidebar"
+              >
+                <Menu size={18} />
+              </button>
+            </div>
           )}
-
-          <button
-            onClick={() => setIsOpen(!isOpen)}
-            className="p-2 rounded-lg text-slate-300 hover:bg-slate-800 transition-colors duration-200 ease-in-out"
-            aria-label="Toggle sidebar"
-          >
-            <Menu size={18} />
-          </button>
         </div>
 
         <div className={`${isOpen ? 'flex-1 flex flex-col' : 'flex-1 flex flex-col'}`}>
-          {isOpen && (
-            <p className="px-6 pb-3 text-xs text-slate-500">Smart Occupancy System</p>
-          )}
           <nav className="flex-1 p-4 space-y-2">
             <NavItem collapsed={!isOpen} active={currentView === 'dashboard'} icon={<LayoutDashboard />} label="Live Dashboard" onClick={() => onViewChange('dashboard')} />
             <NavItem collapsed={!isOpen} active={currentView === 'camera-calibration'} icon={<Camera />} label="Camera Calibration" onClick={() => onViewChange('camera-calibration')} />

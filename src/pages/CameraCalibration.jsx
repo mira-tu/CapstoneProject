@@ -9,6 +9,9 @@ const CameraCalibration = ({ tables = [], setTables, selectedTableId, setSelecte
   const activeTable = safeTables.find(t => t.id === safeSelectedTableId) || safeTables[0] || null;
   const containerRef = useRef(null);
 
+  const floor1Tables = safeTables.filter(t => t.floor === 1 || !t.floor);
+  const floor2Tables = safeTables.filter(t => t.floor === 2);
+
   useEffect(() => {
     if (activeTable?.coordinates) {
       setPoints(activeTable.coordinates);
@@ -104,15 +107,30 @@ const CameraCalibration = ({ tables = [], setTables, selectedTableId, setSelecte
 
         <div className="bg-slate-900 rounded-2xl border border-slate-800 p-6 flex flex-col justify-between">
           <div className="space-y-6">
-            <div className="border-b border-slate-800 pb-4">
+            <div className="border-b border-slate-800 pb-4 space-y-3">
               <span className="text-xs uppercase font-black text-slate-500">Asset Selection</span>
-              <div className="mt-2">
-                <select 
+
+              <div>
+                <p className="mb-1 text-[10px] uppercase tracking-[0.2em] text-slate-400">1st Floor</p>
+                <select
                   value={safeSelectedTableId}
                   onChange={(e) => setSelectedTableId?.(e.target.value)}
                   className="w-full bg-slate-950 text-white border border-slate-800 rounded-lg py-2.5 px-3 text-sm focus:border-blue-500 outline-none"
                 >
-                  {safeTables.map(t => (
+                  {floor1Tables.map(t => (
+                    <option key={t.id} value={t.id}>{t.id} - {t.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <p className="mb-1 text-[10px] uppercase tracking-[0.2em] text-slate-400">2nd Floor</p>
+                <select
+                  value={safeSelectedTableId}
+                  onChange={(e) => setSelectedTableId?.(e.target.value)}
+                  className="w-full bg-slate-950 text-white border border-slate-800 rounded-lg py-2.5 px-3 text-sm focus:border-blue-500 outline-none"
+                >
+                  {floor2Tables.map(t => (
                     <option key={t.id} value={t.id}>{t.id} - {t.label}</option>
                   ))}
                 </select>
