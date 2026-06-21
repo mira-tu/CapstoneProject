@@ -269,32 +269,8 @@ const TableManagement = ({ tables, onAdd, onDelete, onUpdate, onStatusOverride }
                     <AlertTriangle size={16} className="text-orange-500" />
                     <h4 className="text-sm font-bold text-orange-400">Manual Status Override</h4>
                   </div>
-                  <p className="mb-3 text-xs text-slate-400">Use this when smart features are glitching or need manual intervention.</p>
+                  <p className="mb-3 text-xs text-slate-400">Use this only for statuses that require admin intervention.</p>
                   <div className="grid grid-cols-2 gap-2">
-                    <button
-                      onClick={() => handleStatusOverride('vacant')}
-                      className="rounded-lg bg-green-600 py-2 text-xs font-semibold text-white hover:bg-green-700"
-                    >
-                      Available
-                    </button>
-                    <button
-                      onClick={() => handleStatusOverride('partial')}
-                      className="rounded-lg bg-yellow-600 py-2 text-xs font-semibold text-white hover:bg-yellow-700"
-                    >
-                      Partial
-                    </button>
-                    <button
-                      onClick={() => handleStatusOverride('full')}
-                      className="rounded-lg bg-red-600 py-2 text-xs font-semibold text-white hover:bg-red-700"
-                    >
-                      Full
-                    </button>
-                    <button
-                      onClick={() => handleStatusOverride('merged')}
-                      className="rounded-lg bg-orange-600 py-2 text-xs font-semibold text-white hover:bg-orange-700"
-                    >
-                      Merged
-                    </button>
                     <button
                       onClick={() => handleStatusOverride('reserved')}
                       className="rounded-lg bg-blue-600 py-2 text-xs font-semibold text-white hover:bg-blue-700"

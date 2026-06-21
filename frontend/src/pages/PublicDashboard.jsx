@@ -1,36 +1,129 @@
-import React from 'react';
-import { Lock } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Lock, MapPin } from 'lucide-react';
 import tableyeLogo from '../assets/tableye-logo.png';
-import TableCard from '../components/TableCard';
+
+const statusMeta = {
+  vacant: {
+    label: 'Available/Unoccupied',
+    dot: 'bg-green-500',
+    text: 'text-green-300',
+    border: 'border-green-500',
+    bg: 'bg-green-500/15',
+  },
+  partial: {
+    label: 'Partially Occupied',
+    dot: 'bg-yellow-500',
+    text: 'text-yellow-300',
+    border: 'border-yellow-500',
+    bg: 'bg-yellow-500/15',
+  },
+  full: {
+    label: 'Fully Occupied',
+    dot: 'bg-red-500',
+    text: 'text-red-300',
+    border: 'border-red-500',
+    bg: 'bg-red-500/15',
+  },
+  merged: {
+    label: 'Merged Table/s',
+    dot: 'bg-orange-500',
+    text: 'text-orange-300',
+    border: 'border-orange-500',
+    bg: 'bg-orange-500/15',
+  },
+  reserved: {
+    label: 'Reserved/Under Maintenance',
+    dot: 'bg-slate-500',
+    text: 'text-slate-300',
+    border: 'border-slate-600',
+    bg: 'bg-slate-700/60',
+  },
+  maintenance: {
+    label: 'Reserved/Under Maintenance',
+    dot: 'bg-slate-500',
+    text: 'text-slate-300',
+    border: 'border-slate-600',
+    bg: 'bg-slate-700/60',
+  },
+};
+
+const floorLayouts = {
+  1: {
+    entrance: 'Cashier',
+    landmarks: [],
+    access: { label: 'Upstairs', className: 'left-[7%] top-[36%]' },
+    tables: {
+      T01: 'left-[12%] bottom-[8%] w-28',
+      T02: 'left-1/2 bottom-[18%] w-28 -translate-x-1/2',
+      T04: 'right-[12%] bottom-[8%] w-28',
+    },
+  },
+  2: {
+    entrance: '',
+    landmarks: [],
+    access: { label: 'Downstairs', className: 'left-[7%] top-[36%]' },
+    tables: {
+      T03: 'left-1/2 bottom-[8%] w-28 -translate-x-1/2',
+    },
+  },
+};
 
 const PublicDashboard = ({ tables, onViewChange }) => {
-  // Overall Metrics
-  const vacant = tables.filter(t => t.status === 'vacant').length;
-  const partial = tables.filter(t => t.status === 'partial').length;
-  const full = tables.filter(t => t.status === 'full').length;
-  const merged = tables.filter(t => t.status === 'merged').length;
-  const reserved = tables.filter(t => t.status === 'reserved').length;
-  const maintenance = tables.filter(t => t.status === 'maintenance').length;
+  const [activeFloorIndex, setActiveFloorIndex] = useState(0);
 
-  // Split Tables by Floor (Fallback to floor 1 if undefined)
-  const floor1Tables = tables.filter(t => t.floor === 1 || !t.floor);
-  const floor2Tables = tables.filter(t => t.floor === 2);
+  const floorSlides = [
+    { number: 1, label: '1st Floor', tables: tables.filter(t => t.floor === 1 || !t.floor) },
+    { number: 2, label: '2nd Floor', tables: tables.filter(t => t.floor === 2) },
+  ].filter(floor => floor.tables.length > 0);
+  const activeFloor = floorSlides[activeFloorIndex] || floorSlides[0];
+  const activeLayout = floorLayouts[activeFloor?.number] || floorLayouts[1];
+  const floorVacant = activeFloor?.tables.filter(t => t.status === 'vacant').length || 0;
+  const floorFull = activeFloor?.tables.filter(t => t.status === 'full').length || 0;
 
-  const floor1Vacant = floor1Tables.filter(t => t.status === 'vacant').length;
-  const floor2Vacant = floor2Tables.filter(t => t.status === 'vacant').length;
-  const floor1Full = floor1Tables.filter(t => t.status === 'full').length;
-  const floor2Full = floor2Tables.filter(t => t.status === 'full').length;
+  useEffect(() => {
+    if (floorSlides.length <= 1) return undefined;
+
+    const timer = window.setInterval(() => {
+      setActiveFloorIndex(current => (current + 1) % floorSlides.length);
+    }, 5000);
+
+    return () => window.clearInterval(timer);
+  }, [floorSlides.length]);
+
+  const renderTableMarker = (table, index) => {
+    const status = statusMeta[table.status] || statusMeta.vacant;
+    const fallbackPositions = [
+      'left-[12%] bottom-[8%] w-28',
+      'left-1/2 bottom-[8%] w-28 -translate-x-1/2',
+      'right-[12%] bottom-[8%] w-28',
+      'right-[12%] top-[34%] w-28',
+    ];
+    const position = activeLayout.tables[table.id] || fallbackPositions[index % fallbackPositions.length];
+
+    return (
+      <div
+        key={table.id}
+        className={`absolute ${position} flex flex-col items-center text-center`}
+      >
+        <div className={`h-14 w-20 rounded-2xl border-2 ${status.border} ${status.bg} shadow-lg`} />
+        <div className="mt-1.5 leading-tight">
+          <p className={`text-base font-black ${status.text}`}>{table.id}</p>
+          <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-white">{table.status}</p>
+          <p className="text-[11px] font-bold text-white">{table.occupied || 0} / {table.capacity}</p>
+          <p className="text-[9px] text-slate-300">{table.label}</p>
+        </div>
+      </div>
+    );
+  };
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-slate-900 text-white">
+    <div className="flex h-screen flex-col overflow-hidden bg-slate-950 text-white">
       <header className="grid grid-cols-[auto_1fr_auto] items-center border-b border-slate-800 bg-slate-950 px-4 py-3">
-        <div className="flex items-center">
-          <img
-            src={tableyeLogo}
-            alt="Tableye Logo"
-            className="h-12 w-12 rounded-full object-cover ring-2 ring-slate-700"
-          />
-        </div>
+        <img
+          src={tableyeLogo}
+          alt="Tableye Logo"
+          className="h-12 w-12 rounded-full object-cover ring-2 ring-slate-700"
+        />
 
         <div className="text-center">
           <h2 className="mt-1 text-3xl font-bold tracking-[0.35em] text-white">TABLEYE</h2>
@@ -48,117 +141,75 @@ const PublicDashboard = ({ tables, onViewChange }) => {
         </button>
       </header>
 
-      <section className="bg-slate-950 px-4 pb-3 pt-3">
-        <div className="mx-auto grid max-w-6xl gap-3 md:grid-cols-[1.2fr_0.8fr]">
-          {/* Main Availability Card with Floor Breakdown */}
-          <div className="flex flex-col justify-between rounded-3xl border border-slate-700 bg-slate-800/90 px-8 py-6 text-center shadow-2xl">
-            <div>
-              <p className="text-base font-medium text-slate-400">CURRENT AVAILABILITY</p>
-              <div className="mt-2 flex items-end justify-center gap-2">
-                <span className="text-6xl font-black text-green-400 tracking-tight">{vacant}</span>
-                <span className="pb-2 text-3xl font-bold text-slate-500">/ {tables.length}</span>
+      <main className="flex min-h-0 flex-1 flex-col items-center p-4">
+        {activeFloor && (
+          <section className="flex min-h-0 w-full max-w-7xl flex-1 flex-col rounded-3xl border border-slate-700 bg-slate-900 p-5 shadow-2xl">
+            <div className="grid gap-3 lg:grid-cols-[1fr_auto]">
+              <div className="grid gap-3 md:grid-cols-3">
+                <div className="rounded-2xl border border-slate-700 bg-slate-800/80 p-4 text-center">
+                  <p className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">Current Floor</p>
+                  <p className="mt-1 text-3xl font-black text-white">{activeFloor.label}</p>
+                </div>
+                <div className="rounded-2xl border border-green-500/30 bg-green-500/10 p-4 text-center">
+                  <p className="text-xs font-semibold uppercase tracking-[0.25em] text-green-300">Available Here</p>
+                  <p className="mt-1 text-3xl font-black text-green-400">{floorVacant} / {activeFloor.tables.length}</p>
+                </div>
+                <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-center">
+                  <p className="text-xs font-semibold uppercase tracking-[0.25em] text-red-300">Full Here</p>
+                  <p className="mt-1 text-3xl font-black text-white">{floorFull} Table/s</p>
+                </div>
               </div>
-              <p className="mt-1 text-lg text-green-400 mb-4">TABLES AVAILABLE</p>
-            </div>
 
-            {/* Smart Floor Breakdown */}
-            <div className="flex justify-center gap-8 border-t border-slate-700 pt-4">
-              <div>
-                <p className="text-xs uppercase tracking-[0.2em] text-slate-400">1st Floor</p>
-                <p className="text-xl font-bold text-white mt-1">{floor1Vacant} <span className="text-sm text-slate-500">/ {floor1Tables.length}</span></p>
-              </div>
-              <div className="w-px bg-slate-700"></div>
-              <div>
-                <p className="text-xs uppercase tracking-[0.2em] text-slate-400">2nd Floor</p>
-                <p className="text-xl font-bold text-white mt-1">{floor2Vacant} <span className="text-sm text-slate-500">/ {floor2Tables.length}</span></p>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-1">
-            <div className="flex flex-col justify-center rounded-3xl border border-slate-700 bg-slate-800/90 px-5 py-4 text-center shadow-lg">
-              <p className="text-xs uppercase tracking-[0.3em] text-slate-400">1st Floor</p>
-              <p className="mt-1 text-3xl font-bold text-white">{floor1Full} Table/s Full</p>
-            </div>
-            <div className="flex flex-col justify-center rounded-3xl border border-slate-700 bg-slate-800/90 px-5 py-4 text-center shadow-lg">
-              <p className="text-xs uppercase tracking-[0.3em] text-slate-400">2nd Floor</p>
-              <p className="mt-1 text-3xl font-bold text-white">{floor2Full} Table/s Full</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="bg-slate-950 px-4 pb-3">
-        <div className="mx-auto grid max-w-6xl grid-cols-5 gap-2">
-          <div className="rounded-2xl border border-green-500/20 bg-green-500/10 p-2 text-center">
-            <p className="text-[9px] uppercase tracking-[0.2em] text-green-300">Available/Unoccupied</p>
-            <p className="mt-1 text-xl font-bold text-green-400">{vacant}</p>
-          </div>
-          <div className="rounded-2xl border border-yellow-500/20 bg-yellow-500/10 p-2 text-center">
-            <p className="text-[9px] uppercase tracking-[0.2em] text-yellow-300">Partially Occupied</p>
-            <p className="mt-1 text-xl font-bold text-yellow-400">{partial}</p>
-          </div>
-          <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-2 text-center">
-            <p className="text-[9px] uppercase tracking-[0.2em] text-red-300">Fully Occupied</p>
-            <p className="mt-1 text-xl font-bold text-red-400">{full}</p>
-          </div>
-          <div className="rounded-2xl border border-orange-500/20 bg-orange-500/10 p-2 text-center">
-            <p className="text-[9px] uppercase tracking-[0.2em] text-orange-300">Merged Table/s</p>
-            <p className="mt-1 text-xl font-bold text-orange-400">{merged}</p>
-          </div>
-          <div className="rounded-2xl border border-slate-600/40 bg-slate-800 p-2 text-center">
-            <p className="text-[9px] uppercase tracking-[0.2em] text-slate-400">Reserved/Under Maintenance</p>
-            <p className="mt-1 text-xl font-bold text-slate-300">{reserved + maintenance}</p>
-          </div>
-        </div>
-      </section>
-
-      <main className="flex min-h-0 flex-1 flex-col items-center px-4 pt-3 pb-2">
-        <p className="mb-2 text-center text-sm text-slate-400">
-          Please check the digital layout below to find your seat.
-        </p>
-
-        <div className="flex w-full max-w-6xl flex-1 flex-col gap-3 overflow-hidden">
-          
-          {/* --- 1ST FLOOR SECTION --- */}
-          {floor1Tables.length > 0 && (
-            <div className="rounded-3xl border border-slate-800 bg-slate-900/50 p-6 md:p-8 shadow-inner">
-              <div className="mb-6 flex items-center gap-4">
-                <h3 className="text-xl font-black tracking-[0.2em] text-slate-300 uppercase">1st Floor</h3>
-                <div className="h-px flex-1 bg-slate-800"></div>
-              </div>
-              <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-                {floor1Tables.map(table => (
-                  <TableCard key={table.id} table={table} isAdmin={false} />
+              <div className="flex items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-800/80 px-4">
+                {floorSlides.map((floor, index) => (
+                  <span
+                    key={floor.label}
+                    className={`h-3 w-3 rounded-full ${index === activeFloorIndex ? 'bg-blue-400' : 'bg-slate-700'}`}
+                  />
                 ))}
               </div>
             </div>
-          )}
 
-          {/* --- 2ND FLOOR SECTION --- */}
-          {floor2Tables.length > 0 && (
-            <div className="rounded-3xl border border-slate-800 bg-slate-900/50 p-6 md:p-8 shadow-inner">
-              <div className="mb-6 flex items-center gap-4">
-                <h3 className="text-xl font-black tracking-[0.2em] text-slate-300 uppercase">2nd Floor</h3>
-                <div className="h-px flex-1 bg-slate-800"></div>
+            <div className="mt-3 flex min-h-0 flex-1 flex-col rounded-3xl border border-slate-800 bg-slate-950/70 p-4">
+              <div className="mb-3 flex items-center gap-3">
+                <MapPin size={18} className="text-blue-300" />
+                <h3 className="text-lg font-black uppercase tracking-[0.22em] text-slate-200">{activeFloor.label} Facility Map</h3>
+                <div className="h-px flex-1 bg-slate-800" />
+                <p className="text-xs uppercase tracking-[0.18em] text-slate-500">{activeLayout.access.label}</p>
               </div>
-              <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-                {floor2Tables.map(table => (
-                  <TableCard key={table.id} table={table} isAdmin={false} />
+
+              <div className="relative min-h-0 flex-1 overflow-hidden rounded-2xl border border-slate-800 bg-[linear-gradient(90deg,rgba(51,65,85,0.18)_1px,transparent_1px),linear-gradient(rgba(51,65,85,0.18)_1px,transparent_1px)] bg-[size:42px_42px]">
+                <div className="absolute inset-x-8 top-6 flex h-6 items-center justify-center rounded-full bg-slate-800 text-[10px] font-bold uppercase tracking-[0.18em] text-blue-200">
+                  <span className="absolute left-4 text-slate-300">{activeLayout.access.label}</span>
+                  {activeLayout.entrance}
+                </div>
+
+                {activeLayout.landmarks.map(item => (
+                  <div
+                    key={item.label}
+                    className={`absolute ${item.className} flex items-center justify-center rounded-2xl border border-slate-700 bg-slate-800/70 text-center text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400`}
+                  >
+                    {item.label}
+                  </div>
                 ))}
+
+                {activeFloor.tables.map(renderTableMarker)}
               </div>
             </div>
-          )}
 
-        </div>
-
-        <div className="mt-3 flex flex-wrap justify-center gap-3 rounded-2xl bg-slate-800 px-4 py-2 text-sm font-medium text-slate-300">
-          <span className="flex items-center gap-2"><span className="h-3 w-3 rounded-full bg-green-500"></span> Available/Unoccupied</span>
-          <span className="flex items-center gap-2"><span className="h-3 w-3 rounded-full bg-yellow-500"></span> Partially Occupied</span>
-          <span className="flex items-center gap-2"><span className="h-3 w-3 rounded-full bg-red-500"></span> Fully Occupied</span>
-          <span className="flex items-center gap-2"><span className="h-3 w-3 rounded-full bg-orange-500"></span> Merged Table/s</span>
-          <span className="flex items-center gap-2"><span className="h-3 w-3 rounded-full bg-slate-600"></span> Reserved/Under Maintenance</span>
-        </div>
+            <div className="mt-3 flex flex-wrap justify-center gap-3 rounded-2xl bg-slate-800 px-4 py-2 text-sm font-medium text-slate-300">
+              {['vacant', 'partial', 'full', 'merged', 'reserved'].map(statusKey => {
+                const status = statusMeta[statusKey];
+                return (
+                  <span key={statusKey} className="flex items-center gap-2">
+                    <span className={`h-3 w-3 rounded-full ${status.dot}`} />
+                    {status.label}
+                  </span>
+                );
+              })}
+            </div>
+          </section>
+        )}
       </main>
     </div>
   );

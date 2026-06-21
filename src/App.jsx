@@ -53,6 +53,23 @@ export default function App() {
             onUpdate={updatedTable =>
               setTables(prev => prev.map(t => (t.id === updatedTable.id ? updatedTable : t)))
             }
+            onStatusOverride={(id, status) =>
+              setTables(prev => prev.map(t => (
+                t.id === id
+                  ? {
+                      ...t,
+                      status,
+                      occupied:
+                        status === 'full'
+                          ? t.capacity
+                          : status === 'partial'
+                            ? Math.max(1, Math.floor(t.capacity / 2))
+                            : 0,
+                      auto: false,
+                    }
+                  : t
+              )))
+            }
           />
         );
       case 'analytics':
@@ -63,7 +80,7 @@ export default function App() {
   };
 
   return (
-    <div className="h-screen overflow-hidden bg-slate-100 font-sans text-slate-800">
+    <div className="min-h-screen bg-slate-100 font-sans text-slate-800">
       <Routes>
         <Route
           path="/public"
