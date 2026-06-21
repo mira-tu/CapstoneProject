@@ -59,7 +59,7 @@ const AdminWrapper = ({ children, currentView, onViewChange }) => {
 
         <div className={`${isOpen ? 'flex-1 flex flex-col' : 'flex-1 flex flex-col'}`}>
           <nav className="flex-1 p-4 space-y-2">
-            <NavItem collapsed={!isOpen} active={currentView === 'dashboard'} icon={<LayoutDashboard />} label="Live Dashboard" onClick={() => onViewChange('dashboard')} />
+            <NavItem collapsed={!isOpen} active={currentView === 'dashboard'} icon={<LayoutDashboard />} label="Dashboard" onClick={() => onViewChange('dashboard')} />
             <NavItem collapsed={!isOpen} active={currentView === 'camera-calibration'} icon={<Camera />} label="Camera Calibration" onClick={() => onViewChange('camera-calibration')} />
             <NavItem collapsed={!isOpen} active={currentView === 'table-management'} icon={<Table2 />} label="Table Management" onClick={() => onViewChange('table-management')} />
             <NavItem collapsed={!isOpen} active={currentView === 'analytics' || currentView === 'logs'} icon={<BarChart3 />} label="Analytics & Logs" onClick={() => onViewChange('analytics')} />

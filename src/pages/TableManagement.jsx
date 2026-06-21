@@ -1,15 +1,24 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, Edit3, Eye, Save, X } from 'lucide-react';
+import { Plus, Trash2, Edit3, Eye, Save, X, AlertTriangle } from 'lucide-react';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import AdminTopbar from '../layouts/AdminTopbar';
 
-const TableManagement = ({ tables, onAdd, onDelete, onUpdate }) => {
+const TableManagement = ({ tables, onAdd, onDelete, onUpdate, onStatusOverride }) => {
   const [newId, setNewId] = useState('');
   const [newLabel, setNewLabel] = useState('');
   const [newCapacity, setNewCapacity] = useState(4);
   const [newFloor, setNewFloor] = useState(1);
   const [selectedId, setSelectedId] = useState('');
-  const [editingId, setEditingId] = useState('');
   const [editForm, setEditForm] = useState({ id: '', label: '', capacity: 4, floor: 1 });
+  
+  // Modal states
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [tableToEdit, setTableToEdit] = useState(null);
+  const [tableToView, setTableToView] = useState(null);
+  const [tableToDelete, setTableToDelete] = useState(null);
 
   const floor1Tables = tables.filter(table => table.floor === 1 || !table.floor);
   const floor2Tables = tables.filter(table => table.floor === 2);
@@ -17,7 +26,10 @@ const TableManagement = ({ tables, onAdd, onDelete, onUpdate }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!newId || !newLabel) return;
+    if (!newId || !newLabel) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
 
     onAdd({
       id: newId.toUpperCase().trim(),
@@ -31,29 +43,43 @@ const TableManagement = ({ tables, onAdd, onDelete, onUpdate }) => {
       coordinates: [[100, 100], [200, 100], [200, 200], [100, 200]]
     });
 
+    toast.success(`Table ${newId.toUpperCase().trim()} added successfully`);
     setNewId('');
     setNewLabel('');
     setNewCapacity(4);
     setNewFloor(1);
   };
 
-  const startEditing = (table) => {
-    setSelectedId(table.id);
-    setEditingId(table.id);
+  const openEditModal = (table) => {
+    setTableToEdit(table);
     setEditForm({
       id: table.id,
       label: table.label || '',
       capacity: table.capacity || 4,
       floor: table.floor || 1
     });
+    setShowEditModal(true);
+  };
+
+  const openViewModal = (table) => {
+    setTableToView(table);
+    setShowViewModal(true);
+  };
+
+  const openDeleteModal = (table) => {
+    setTableToDelete(table);
+    setShowDeleteModal(true);
   };
 
   const handleEditSubmit = (e) => {
     e.preventDefault();
-    if (!editForm.id || !editForm.label || !onUpdate) return;
+    if (!editForm.id || !editForm.label || !onUpdate) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
 
     const updatedTable = {
-      ...selectedTable,
+      ...tableToEdit,
       id: editForm.id.toUpperCase().trim(),
       label: editForm.label.trim(),
       capacity: parseInt(editForm.capacity || 4),
@@ -61,8 +87,40 @@ const TableManagement = ({ tables, onAdd, onDelete, onUpdate }) => {
     };
 
     onUpdate(updatedTable);
-    setEditingId('');
-    setSelectedId(updatedTable.id);
+    setShowEditModal(false);
+    setTableToEdit(null);
+    
+    toast.success(`Table ${updatedTable.id} updated successfully`);
+    
+    if (selectedId === tableToEdit.id) {
+      setSelectedId(updatedTable.id);
+    }
+  };
+
+  const handleDeleteConfirm = () => {
+    if (tableToDelete && onDelete) {
+      try {
+        onDelete(tableToDelete.id);
+        setShowDeleteModal(false);
+        const deletedId = tableToDelete.id;
+        setTableToDelete(null);
+        
+        if (selectedId === tableToDelete.id) {
+          setSelectedId('');
+        }
+        
+        toast.success(`Table ${deletedId} deleted successfully`);
+      } catch (error) {
+        toast.error('Failed to delete table');
+      }
+    }
+  };
+
+  const handleStatusOverride = (status) => {
+    if (selectedTable && onStatusOverride) {
+      onStatusOverride(selectedTable.id, status);
+      toast.success(`Table ${selectedTable.id} status changed to ${status}`);
+    }
   };
 
   const renderInventorySection = (title, list) => (
@@ -87,21 +145,21 @@ const TableManagement = ({ tables, onAdd, onDelete, onUpdate }) => {
               </button>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => startEditing(table)}
+                  onClick={() => openEditModal(table)}
                   className="rounded-lg p-2 text-slate-300 hover:bg-slate-800 hover:text-white"
                   title="Edit"
                 >
                   <Edit3 size={16} />
                 </button>
                 <button
-                  onClick={() => setSelectedId(table.id)}
+                  onClick={() => openViewModal(table)}
                   className="rounded-lg p-2 text-slate-300 hover:bg-slate-800 hover:text-white"
                   title="View"
                 >
                   <Eye size={16} />
                 </button>
                 <button
-                  onClick={() => onDelete(table.id)}
+                  onClick={() => openDeleteModal(table)}
                   className="rounded-lg p-2 bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white"
                   title="Delete"
                 >
@@ -179,82 +237,81 @@ const TableManagement = ({ tables, onAdd, onDelete, onUpdate }) => {
           </div>
 
           <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
-            {editingId && selectedTable ? (
-              <form onSubmit={handleEditSubmit} className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-bold text-white">Edit Asset</h3>
-                  <button type="button" onClick={() => setEditingId('')} className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white">
-                    <X size={18} />
-                  </button>
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Table ID</label>
-                  <input
-                    type="text"
-                    value={editForm.id}
-                    onChange={e => setEditForm({ ...editForm, id: e.target.value })}
-                    className="w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Label</label>
-                  <input
-                    type="text"
-                    value={editForm.label}
-                    onChange={e => setEditForm({ ...editForm, label: e.target.value })}
-                    className="w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="mb-1 block text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Capacity</label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={editForm.capacity}
-                      onChange={e => setEditForm({ ...editForm, capacity: e.target.value })}
-                      className="w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Floor</label>
-                    <select
-                      value={editForm.floor}
-                      onChange={e => setEditForm({ ...editForm, floor: e.target.value })}
-                      className="w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
-                    >
-                      <option value="1">1st Floor</option>
-                      <option value="2">2nd Floor</option>
-                    </select>
-                  </div>
-                </div>
-                <button type="submit" className="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700">
-                  <Save size={16} /> Save Changes
-                </button>
-              </form>
-            ) : (
-              <div>
-                <h3 className="mb-2 text-lg font-bold text-white">Selected Asset</h3>
-                {selectedTable ? (
-                  <div className="space-y-2 rounded-xl border border-slate-800 bg-slate-950 p-4">
-                    <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Asset Details</p>
-                    <h4 className="text-2xl font-bold text-white">{selectedTable.id}</h4>
-                    <p className="text-sm text-slate-300">{selectedTable.label}</p>
-                    <div className="grid grid-cols-2 gap-3 text-sm text-slate-400">
-                      <div>
-                        <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Capacity</p>
-                        <p className="mt-1 text-white">{selectedTable.capacity}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Floor</p>
-                        <p className="mt-1 text-white">{selectedTable.floor || 1}</p>
-                      </div>
+            <h3 className="mb-4 text-lg font-bold text-white">Selected Asset</h3>
+            {selectedTable ? (
+              <div className="space-y-4">
+                <div className="space-y-2 rounded-xl border border-slate-800 bg-slate-950 p-4">
+                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Asset Details</p>
+                  <h4 className="text-2xl font-bold text-white">{selectedTable.id}</h4>
+                  <p className="text-sm text-slate-300">{selectedTable.label}</p>
+                  <div className="grid grid-cols-2 gap-3 text-sm text-slate-400">
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Capacity</p>
+                      <p className="mt-1 text-white">{selectedTable.capacity}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Floor</p>
+                      <p className="mt-1 text-white">{selectedTable.floor || 1}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Current Status</p>
+                      <p className="mt-1 text-white capitalize">{selectedTable.status || 'vacant'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Occupied</p>
+                      <p className="mt-1 text-white">{selectedTable.occupied || 0} / {selectedTable.capacity}</p>
                     </div>
                   </div>
-                ) : (
-                  <p className="text-sm text-slate-400">No table selected yet.</p>
-                )}
+                </div>
+
+                <div className="rounded-xl border border-orange-500/30 bg-orange-500/5 p-4">
+                  <div className="mb-3 flex items-center gap-2">
+                    <AlertTriangle size={16} className="text-orange-500" />
+                    <h4 className="text-sm font-bold text-orange-400">Manual Status Override</h4>
+                  </div>
+                  <p className="mb-3 text-xs text-slate-400">Use this when smart features are glitching or need manual intervention.</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => handleStatusOverride('vacant')}
+                      className="rounded-lg bg-green-600 py-2 text-xs font-semibold text-white hover:bg-green-700"
+                    >
+                      Available
+                    </button>
+                    <button
+                      onClick={() => handleStatusOverride('partial')}
+                      className="rounded-lg bg-yellow-600 py-2 text-xs font-semibold text-white hover:bg-yellow-700"
+                    >
+                      Partial
+                    </button>
+                    <button
+                      onClick={() => handleStatusOverride('full')}
+                      className="rounded-lg bg-red-600 py-2 text-xs font-semibold text-white hover:bg-red-700"
+                    >
+                      Full
+                    </button>
+                    <button
+                      onClick={() => handleStatusOverride('merged')}
+                      className="rounded-lg bg-orange-600 py-2 text-xs font-semibold text-white hover:bg-orange-700"
+                    >
+                      Merged
+                    </button>
+                    <button
+                      onClick={() => handleStatusOverride('reserved')}
+                      className="rounded-lg bg-blue-600 py-2 text-xs font-semibold text-white hover:bg-blue-700"
+                    >
+                      Reserved
+                    </button>
+                    <button
+                      onClick={() => handleStatusOverride('maintenance')}
+                      className="rounded-lg bg-slate-600 py-2 text-xs font-semibold text-white hover:bg-slate-700"
+                    >
+                      Maintenance
+                    </button>
+                  </div>
+                </div>
               </div>
+            ) : (
+              <p className="text-sm text-slate-400">No table selected yet.</p>
             )}
           </div>
         </div>
@@ -279,6 +336,158 @@ const TableManagement = ({ tables, onAdd, onDelete, onUpdate }) => {
           {renderInventorySection('2nd Floor', floor2Tables)}
         </div>
       </div>
+
+      {/* Edit Modal */}
+      {showEditModal && tableToEdit && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-6">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-white">Edit Asset</h3>
+              <button onClick={() => setShowEditModal(false)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white">
+                <X size={18} />
+              </button>
+            </div>
+            <form onSubmit={handleEditSubmit} className="space-y-4">
+              <div>
+                <label className="mb-1 block text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Table ID</label>
+                <input
+                  type="text"
+                  value={editForm.id}
+                  onChange={e => setEditForm({ ...editForm, id: e.target.value })}
+                  className="w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Label</label>
+                <input
+                  type="text"
+                  value={editForm.label}
+                  onChange={e => setEditForm({ ...editForm, label: e.target.value })}
+                  className="w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Capacity</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={editForm.capacity}
+                    onChange={e => setEditForm({ ...editForm, capacity: e.target.value })}
+                    className="w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Floor</label>
+                  <select
+                    value={editForm.floor}
+                    onChange={e => setEditForm({ ...editForm, floor: e.target.value })}
+                    className="w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
+                  >
+                    <option value="1">1st Floor</option>
+                    <option value="2">2nd Floor</option>
+                  </select>
+                </div>
+              </div>
+              <button type="submit" className="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700">
+                <Save size={16} /> Save Changes
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* View Modal */}
+      {showViewModal && tableToView && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-6">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-white">Asset Details</h3>
+              <button onClick={() => setShowViewModal(false)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="space-y-3">
+              <div className="rounded-xl border border-slate-800 bg-slate-950 p-4">
+                <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Table ID</p>
+                <h4 className="text-2xl font-bold text-white">{tableToView.id}</h4>
+              </div>
+              <div className="rounded-xl border border-slate-800 bg-slate-950 p-4">
+                <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Label</p>
+                <p className="text-lg text-white">{tableToView.label}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-xl border border-slate-800 bg-slate-950 p-4">
+                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Capacity</p>
+                  <p className="text-lg text-white">{tableToView.capacity}</p>
+                </div>
+                <div className="rounded-xl border border-slate-800 bg-slate-950 p-4">
+                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Floor</p>
+                  <p className="text-lg text-white">{tableToView.floor || 1}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-xl border border-slate-800 bg-slate-950 p-4">
+                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Status</p>
+                  <p className="text-lg text-white capitalize">{tableToView.status || 'vacant'}</p>
+                </div>
+                <div className="rounded-xl border border-slate-800 bg-slate-950 p-4">
+                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Occupied</p>
+                  <p className="text-lg text-white">{tableToView.occupied || 0} / {tableToView.capacity}</p>
+                </div>
+              </div>
+              <div className="rounded-xl border border-slate-800 bg-slate-950 p-4">
+                <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Auto Mode</p>
+                <p className="text-lg text-white">{tableToView.auto ? 'Enabled' : 'Disabled'}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Modal */}
+      {showDeleteModal && tableToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-md rounded-2xl border border-rose-500/30 bg-slate-900 p-6">
+            <div className="mb-4 flex items-center gap-3">
+              <div className="rounded-full bg-rose-500/10 p-3">
+                <Trash2 size={24} className="text-rose-500" />
+              </div>
+              <h3 className="text-lg font-bold text-white">Delete Asset</h3>
+            </div>
+            <p className="mb-6 text-slate-300">
+              Are you sure you want to delete <span className="font-bold text-white">{tableToDelete.id}</span>? This action cannot be undone.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                className="flex-1 rounded-lg border border-slate-700 bg-slate-800 py-2.5 text-sm font-semibold text-white hover:bg-slate-700"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteConfirm}
+                className="flex-1 rounded-lg bg-rose-600 py-2.5 text-sm font-semibold text-white hover:bg-rose-700"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <ToastContainer
+        position="top-center"
+        autoClose={3000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="dark"
+      />
     </div>
   );
 };
