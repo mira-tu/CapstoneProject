@@ -44,13 +44,24 @@ const CameraCalibration = ({ tables = [], setTables, selectedTableId, setSelecte
       return;
     }
 
+    // Compute the centroid (average x, average y) of the 4 polygon points.
+    // Convert to percentage of the container so the floor plan is responsive.
+    const container = containerRef.current;
+    const w = container ? container.offsetWidth  : 1;
+    const h = container ? container.offsetHeight : 1;
+    const cx = points.reduce((sum, p) => sum + p[0], 0) / points.length;
+    const cy = points.reduce((sum, p) => sum + p[1], 0) / points.length;
+    // Clamp to 5–90% so the table box never clips the container edge.
+    const xPct = Math.min(90, Math.max(5, Math.round((cx / w) * 100)));
+    const yPct = Math.min(90, Math.max(5, Math.round((cy / h) * 100)));
+
     setTables(prev => prev.map(t => {
       if (t.id === safeSelectedTableId) {
-        return { ...t, coordinates: points };
+        return { ...t, coordinates: points, x: xPct, y: yPct };
       }
       return t;
     }));
-    alert(`Successfully calibrated table layout coordinates for [${safeSelectedTableId}]!`);
+    alert(`Calibrated [${safeSelectedTableId}] — floor plan position updated to (${xPct}%, ${yPct}%).`);
   };
 
   return (

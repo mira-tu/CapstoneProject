@@ -40,10 +40,13 @@ export default function App() {
   const [selectedTableId, setSelectedTableId] = useState('T01');
 
   const [tables, setTables] = useState([
-    { id: 'T01', label: 'Window Booth', floor: 1, status: 'vacant', capacity: 4, occupied: 0, conf: 96, auto: true },
-    { id: 'T02', label: 'Center Table', floor: 1, status: 'full', capacity: 4, occupied: 4, conf: 91, auto: true },
-    { id: 'T03', label: 'Bar Counter', floor: 1, status: 'maintenance', capacity: 2, occupied: 0, conf: null, auto: false },
-    { id: 'T04', label: 'Corner Booth', floor: 1, status: 'partial', capacity: 4, occupied: 2, conf: 89, auto: true },
+    // x, y = position on the floor plan canvas (percentage of the container).
+    // These represent where the table physically sits in the venue.
+    // They are updated automatically when the admin saves a calibration region.
+    { id: 'T01', label: 'Window Booth',  floor: 1, status: 'vacant',      capacity: 4, occupied: 0, conf: 96,   auto: true,  x: 15, y: 20 },
+    { id: 'T02', label: 'Center Table',  floor: 1, status: 'full',        capacity: 4, occupied: 4, conf: 91,   auto: true,  x: 45, y: 20 },
+    { id: 'T03', label: 'Bar Counter',   floor: 1, status: 'maintenance', capacity: 2, occupied: 0, conf: null, auto: false, x: 75, y: 20 },
+    { id: 'T04', label: 'Corner Booth',  floor: 1, status: 'partial',     capacity: 4, occupied: 2, conf: 89,   auto: true,  x: 75, y: 65 },
   ]);
 
   // Historical occupancy log. Newest entries first. Written only when a table's

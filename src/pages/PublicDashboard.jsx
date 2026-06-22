@@ -140,43 +140,63 @@ const PublicDashboard = ({ tables, onViewChange }) => {
                 <div className="h-px flex-1 bg-slate-800" />
                 <p className="text-xs uppercase tracking-[0.18em] text-slate-500">{activeAccess.access}</p>
               </div>
-
-              <div className="relative min-h-0 flex-1 overflow-auto rounded-2xl border border-slate-800 bg-[linear-gradient(90deg,rgba(51,65,85,0.18)_1px,transparent_1px),linear-gradient(rgba(51,65,85,0.18)_1px,transparent_1px)] bg-[size:42px_42px] p-6">
-                {/* Entrance / access strip across the top of the floor */}
-                <div className="mb-6 flex h-7 items-center justify-center rounded-full bg-slate-800 text-[10px] font-bold uppercase tracking-[0.18em] text-blue-200">
-                  <span className="absolute left-8 text-slate-300">{activeAccess.access}</span>
+              {/* Floor plan canvas — tables are positioned absolutely using their
+                  x/y percentages, which come from the Camera Calibration centroids.
+                  This reflects the real physical layout of the venue. */}
+              <div className="relative min-h-0 flex-1 overflow-auto rounded-2xl border border-slate-800 bg-[linear-gradient(90deg,rgba(51,65,85,0.18)_1px,transparent_1px),linear-gradient(rgba(51,65,85,0.18)_1px,transparent_1px)] bg-[size:42px_42px]">
+                {/* Entrance strip */}
+                <div className="absolute top-2 left-0 right-0 mx-4 flex h-7 items-center justify-center rounded-full bg-slate-800 text-[10px] font-bold uppercase tracking-[0.18em] text-blue-200 z-10">
+                  <span className="absolute left-4 text-slate-300">{activeAccess.access}</span>
                   {activeAccess.entrance}
                 </div>
 
-                {/* Seating chart: each table is drawn top-down. Tables sharing a
-                    mergeId are pushed together and drawn as one combined unit. */}
-                <div className="flex flex-wrap items-start justify-center gap-x-10 gap-y-8">
-                  {(() => {
-                    // Group tables by mergeId; non-merged tables render alone.
-                    const groups = [];
-                    const mergeGroups = {};
+                {/* Absolutely-positioned table tiles */}
+                {(() => {
+                  const groups = [];
+                  const mergeGroups = {};
 
-                    activeFloor.tables.forEach(table => {
-                      if (table.mergeId) {
-                        if (!mergeGroups[table.mergeId]) {
-                          mergeGroups[table.mergeId] = { mergeId: table.mergeId, tables: [] };
-                          groups.push(mergeGroups[table.mergeId]);
-                        }
-                        mergeGroups[table.mergeId].tables.push(table);
-                      } else {
-                        groups.push({ single: table });
+                  activeFloor.tables.forEach(table => {
+                    if (table.mergeId) {
+                      if (!mergeGroups[table.mergeId]) {
+                        mergeGroups[table.mergeId] = { mergeId: table.mergeId, tables: [], x: table.x ?? 10, y: table.y ?? 10 };
+                        groups.push(mergeGroups[table.mergeId]);
                       }
-                    });
+                      mergeGroups[table.mergeId].tables.push(table);
+                    } else {
+                      groups.push({ single: table });
+                    }
+                  });
 
-                    return groups.map(group =>
-                      group.single ? (
-                        <FloorPlanTable key={group.single.id} table={group.single} />
-                      ) : (
-                        <MergedFloorPlanTable key={group.mergeId} tables={group.tables} />
-                      )
+                  return groups.map(group => {
+                    if (group.single) {
+                      const t = group.single;
+                      // Default position if x/y not yet set by calibration.
+                      const xPct = t.x ?? 10;
+                      const yPct = t.y ?? 10;
+                      return (
+                        <div
+                          key={t.id}
+                          className="absolute -translate-x-1/2 -translate-y-1/2 transition-all duration-700"
+                          style={{ left: `${xPct}%`, top: `${yPct}%` }}
+                        >
+                          <FloorPlanTable table={t} />
+                        </div>
+                      );
+                    }
+                    // Merged group — position at the lead table's coordinates.
+                    const xPct = group.x ?? 10;
+                    const yPct = group.y ?? 10;
+                    return (
+                      <div
+                        key={group.mergeId}
+                        className="absolute -translate-x-1/2 -translate-y-1/2 transition-all duration-700"
+                        style={{ left: `${xPct}%`, top: `${yPct}%` }}
+                      >
+                        <MergedFloorPlanTable tables={group.tables} />
+                      </div>
                     );
-                  })()}
-                </div>
+                  });
+                })()}
               </div>
             </div>
 
