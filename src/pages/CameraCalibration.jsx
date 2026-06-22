@@ -10,7 +10,6 @@ const CameraCalibration = ({ tables = [], setTables, selectedTableId, setSelecte
   const containerRef = useRef(null);
 
   const floor1Tables = safeTables.filter(t => t.floor === 1 || !t.floor);
-  const floor2Tables = safeTables.filter(t => t.floor === 2);
 
   useEffect(() => {
     if (activeTable?.coordinates) {
@@ -21,16 +20,17 @@ const CameraCalibration = ({ tables = [], setTables, selectedTableId, setSelecte
   }, [selectedTableId, tables]);
 
   const handleImageClick = (e) => {
+    // Prevent the SVG overlay from swallowing the event before we read coords.
+    e.stopPropagation();
     if (!containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
     const x = Math.round(e.clientX - rect.left);
     const y = Math.round(e.clientY - rect.top);
 
-    if (points.length >= 4) {
-      setPoints([[x, y]]);
-    } else {
-      setPoints([...points, [x, y]]);
-    }
+    setPoints(prev => {
+      if (prev.length >= 4) return [[x, y]];
+      return [...prev, [x, y]];
+    });
   };
 
   const handleSaveCalibration = () => {
@@ -73,7 +73,8 @@ const CameraCalibration = ({ tables = [], setTables, selectedTableId, setSelecte
             onClick={handleImageClick}
             className="flex-1 bg-slate-950 relative min-h-[380px] flex items-center justify-center p-4 cursor-crosshair"
           >
-            <svg className="absolute inset-0 w-full h-full">
+            {/* SVG is pointer-events:none so clicks always reach the div above */}
+            <svg className="absolute inset-0 w-full h-full pointer-events-none">
               {safeTables.filter(t => t.id !== safeSelectedTableId).map(t => (
                 <polygon 
                   key={t.id}
@@ -111,26 +112,13 @@ const CameraCalibration = ({ tables = [], setTables, selectedTableId, setSelecte
               <span className="text-xs uppercase font-black text-slate-500">Asset Selection</span>
 
               <div>
-                <p className="mb-1 text-[10px] uppercase tracking-[0.2em] text-slate-400">1st Floor</p>
+                <p className="mb-1 text-[10px] uppercase tracking-[0.2em] text-slate-400">Dining Area Tables</p>
                 <select
                   value={safeSelectedTableId}
                   onChange={(e) => setSelectedTableId?.(e.target.value)}
                   className="w-full bg-slate-950 text-white border border-slate-800 rounded-lg py-2.5 px-3 text-sm focus:border-blue-500 outline-none"
                 >
                   {floor1Tables.map(t => (
-                    <option key={t.id} value={t.id}>{t.id} - {t.label}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <p className="mb-1 text-[10px] uppercase tracking-[0.2em] text-slate-400">2nd Floor</p>
-                <select
-                  value={safeSelectedTableId}
-                  onChange={(e) => setSelectedTableId?.(e.target.value)}
-                  className="w-full bg-slate-950 text-white border border-slate-800 rounded-lg py-2.5 px-3 text-sm focus:border-blue-500 outline-none"
-                >
-                  {floor2Tables.map(t => (
                     <option key={t.id} value={t.id}>{t.id} - {t.label}</option>
                   ))}
                 </select>

@@ -2,27 +2,20 @@ import { useMemo, useState } from 'react';
 import { Activity } from 'lucide-react';
 import AdminTopbar from '../layouts/AdminTopbar';
 
-const recentEvents = [
-  { time: 'Today, 12:45 PM', table: 'T02', previous: 'Vacant', current: 'Full', source: 'YOLOv8 Auto' },
-  { time: 'Today, 11:20 AM', table: 'T04', previous: 'Partial', current: 'Vacant', source: 'Manual Override' },
-  { time: 'Today, 10:05 AM', table: 'T01', previous: 'Vacant', current: 'Partial', source: 'Sensor Update' },
-  { time: 'Yesterday, 08:30 PM', table: 'T03', previous: 'Maintenance', current: 'Vacant', source: 'Admin Action' },
-];
-
-const Analytics = () => {
+const Analytics = ({ logs = [] }) => {
   const [filter, setFilter] = useState('');
   const filteredEvents = useMemo(() => {
     const query = filter.trim().toLowerCase();
-    if (!query) return recentEvents;
+    if (!query) return logs;
 
-    return recentEvents.filter(entry => (
-      entry.time.toLowerCase().includes(query) ||
-      entry.table.toLowerCase().includes(query) ||
-      entry.previous.toLowerCase().includes(query) ||
-      entry.current.toLowerCase().includes(query) ||
-      entry.source.toLowerCase().includes(query)
+    return logs.filter(entry => (
+      (entry.time || '').toLowerCase().includes(query) ||
+      (entry.table || '').toLowerCase().includes(query) ||
+      (entry.previous || '').toLowerCase().includes(query) ||
+      (entry.current || '').toLowerCase().includes(query) ||
+      (entry.source || '').toLowerCase().includes(query)
     ));
-  }, [filter]);
+  }, [filter, logs]);
 
   return (
     <div className="p-8 space-y-8 w-full max-w-7xl">
@@ -57,15 +50,24 @@ const Analytics = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
-              {filteredEvents.map((entry, index) => (
-                <tr key={index}>
-                  <td className="px-6 py-4 text-slate-500">{entry.time}</td>
-                  <td className="px-6 py-4 font-medium text-slate-800">{entry.table}</td>
-                  <td className="px-6 py-4 text-slate-500">{entry.previous}</td>
-                  <td className="px-6 py-4 font-medium text-slate-800">{entry.current}</td>
-                  <td className="px-6 py-4 text-slate-500">{entry.source}</td>
+              {filteredEvents.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-10 text-center text-slate-400">
+                    No status changes recorded yet. Status changes will appear here as the
+                    detection feed updates table occupancy.
+                  </td>
                 </tr>
-              ))}
+              ) : (
+                filteredEvents.map((entry, index) => (
+                  <tr key={index}>
+                    <td className="px-6 py-4 text-slate-500">{entry.time}</td>
+                    <td className="px-6 py-4 font-medium text-slate-800">{entry.table}</td>
+                    <td className="px-6 py-4 text-slate-500">{entry.previous}</td>
+                    <td className="px-6 py-4 font-medium text-slate-800">{entry.current}</td>
+                    <td className="px-6 py-4 text-slate-500">{entry.source}</td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

@@ -46,6 +46,10 @@ const ForgotPassword = ({ onViewChange }) => (
 
             <button
               type="button"
+              onClick={() => {
+                alert('If this email is registered, a reset link has been sent.');
+                onViewChange('login');
+              }}
               className="mt-6 w-full rounded-xl bg-blue-600 py-3 font-semibold text-white transition hover:bg-blue-700"
             >
               Send Reset Link

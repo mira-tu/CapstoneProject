@@ -1,160 +1,140 @@
-import React from 'react';
-import { Camera, MonitorPlay, Settings, Sliders } from 'lucide-react';
+import React, { useState } from 'react';
+import { Camera, MonitorPlay, Sliders, Play, Pause, Save, CheckCircle2 } from 'lucide-react';
 import AdminTopbar from '../layouts/AdminTopbar';
 
-const AdminSettings = ({ tables = [] }) => {
+// System Settings = detection & camera configuration page.
+//
+// During the prototype stage these inputs are held in local React state and
+// "saved" locally (simulated). They are intentionally CONTROLLED inputs so the
+// page already behaves like the real thing. When the Python (Flask/FastAPI)
+// backend is ready, the only change needed is to send `settings` to the API
+// inside handleSave() instead of just confirming locally.
+const AdminSettings = ({ simEnabled = false, onToggleSim }) => {
+  // --- Camera / detection configuration (simulated for now) -----------------
+  const [settings, setSettings] = useState({
+    rtspUrl: 'rtsp://192.168.1.100:554/stream1',
+    fps: '15',
+    confidence: 75, // shown to the user as 0.75
+  });
+
+  // Shows a short "saved" confirmation after the user saves.
+  const [saved, setSaved] = useState(false);
+
+  // Update one field of the settings object.
+  const updateField = (field, value) => {
+    setSettings(prev => ({ ...prev, [field]: value }));
+    setSaved(false); // any edit clears the previous "saved" confirmation
+  };
+
+  // Simulated save. Later: POST `settings` to the detection backend here.
+  const handleSave = () => {
+    // TODO (backend stage): send `settings` to Flask/FastAPI, e.g.
+    //   await fetch('/api/settings', { method: 'POST', body: JSON.stringify(settings) })
+    setSaved(true);
+  };
+
   return (
     <div className="p-8">
       <AdminTopbar
         title="System Settings"
-        subtitle="Configure hardware inputs and model thresholds."
+        subtitle="Configure the camera feed and detection model used by TABLEYE."
+        action={
+          <button
+            onClick={onToggleSim}
+            className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium border shadow-sm transition ${
+              simEnabled
+                ? 'bg-green-100 text-green-700 border-green-200 hover:bg-green-200'
+                : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
+            }`}
+          >
+            {simEnabled ? <Pause size={16} /> : <Play size={16} />}
+            {simEnabled ? 'Pause Simulation' : 'Start Simulation'}
+          </button>
+        }
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* --- Camera & Zones ------------------------------------------------ */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-          <h3 className="text-lg font-semibold text-slate-700 mb-4 flex items-center gap-2"><Camera size={20}/> Camera & Zones</h3>
-          
+          <h3 className="text-lg font-semibold text-slate-700 mb-4 flex items-center gap-2">
+            <Camera size={20} /> Camera & Feed
+          </h3>
+
           <div className="w-full h-48 bg-slate-900 rounded-lg flex items-center justify-center text-slate-500 mb-4 relative overflow-hidden">
-            <MonitorPlay size={32} className="mb-2" />
-            <span className="absolute bottom-2 left-2 text-xs text-white bg-black bg-opacity-50 px-2 py-1 rounded">RTSP Stream Preview</span>
+            <MonitorPlay size={32} />
+            <span className="absolute bottom-2 left-2 text-xs text-white bg-black bg-opacity-50 px-2 py-1 rounded">
+              RTSP Stream Preview
+            </span>
           </div>
 
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">RTSP Stream URL</label>
-              <input type="text" defaultValue="rtsp://192.168.1.100:554/stream1" className="w-full px-3 py-2 border rounded-lg text-sm bg-slate-50" />
+              <input
+                type="text"
+                value={settings.rtspUrl}
+                onChange={e => updateField('rtspUrl', e.target.value)}
+                placeholder="rtsp://<camera-ip>:554/stream1"
+                className="w-full px-3 py-2 border rounded-lg text-sm bg-slate-50 focus:border-blue-500 outline-none"
+              />
+              <p className="mt-1 text-xs text-slate-400">
+                Address of the overhead CCTV camera feed. Used by the detection engine once connected.
+              </p>
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Target Processing FPS</label>
-              <select className="w-full px-3 py-2 border rounded-lg text-sm bg-slate-50">
-                <option>10 FPS (Low CPU)</option>
-                <option selected>15 FPS (Recommended)</option>
-                <option>30 FPS (High Performance)</option>
+              <select
+                value={settings.fps}
+                onChange={e => updateField('fps', e.target.value)}
+                className="w-full px-3 py-2 border rounded-lg text-sm bg-slate-50 focus:border-blue-500 outline-none"
+              >
+                <option value="10">10 FPS (Low CPU)</option>
+                <option value="15">15 FPS (Recommended)</option>
+                <option value="30">30 FPS (High Performance)</option>
               </select>
             </div>
           </div>
         </div>
 
-        <div className="space-y-8">
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-            <h3 className="text-lg font-semibold text-slate-700 mb-4">Model Thresholds</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Confidence Trigger: 0.75</label>
-                <input type="range" min="0" max="100" defaultValue="75" className="w-full" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 border-l-4 border-l-orange-500">
-            <h3 className="text-lg font-semibold text-slate-700 mb-4 text-orange-600">Manual Status Overrides</h3>
-            <div className="flex gap-4 mb-4">
-               <select className="px-3 py-2 border rounded-lg text-sm bg-slate-50 flex-1">
-                <option>Select Table...</option>
-                <option>Table 01</option>
-              </select>
-              <select className="px-3 py-2 border rounded-lg text-sm bg-slate-50 flex-1">
-                <option>Mark as Maintenance</option>
-                <option>Restore Automation</option>
-              </select>
-            </div>
-            <button className="w-full bg-slate-800 hover:bg-slate-900 text-white font-medium py-2 rounded-lg text-sm">Apply Override</button>
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-8 bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-        <h3 className="text-lg font-semibold text-slate-700 mb-4 flex items-center gap-2"><Settings size={20}/> KPI Display Configuration</h3>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* --- Model thresholds --------------------------------------------- */}
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 h-fit">
+          <h3 className="text-lg font-semibold text-slate-700 mb-4 flex items-center gap-2">
+            <Sliders size={20} /> Detection Model
+          </h3>
           <div className="space-y-4">
-            <h4 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Visibility Settings</h4>
-            
-            <div className="flex items-center justify-between">
-              <label className="text-sm text-slate-700">Show Total Tables</label>
-              <input type="checkbox" defaultChecked className="w-4 h-4 text-blue-600 rounded" />
-            </div>
-            <div className="flex items-center justify-between">
-              <label className="text-sm text-slate-700">Show Available Tables</label>
-              <input type="checkbox" defaultChecked className="w-4 h-4 text-blue-600 rounded" />
-            </div>
-            <div className="flex items-center justify-between">
-              <label className="text-sm text-slate-700">Show Partial Tables</label>
-              <input type="checkbox" defaultChecked className="w-4 h-4 text-blue-600 rounded" />
-            </div>
-            <div className="flex items-center justify-between">
-              <label className="text-sm text-slate-700">Show Full Tables</label>
-              <input type="checkbox" defaultChecked className="w-4 h-4 text-blue-600 rounded" />
-            </div>
-            <div className="flex items-center justify-between">
-              <label className="text-sm text-slate-700">Show Merged Tables</label>
-              <input type="checkbox" defaultChecked className="w-4 h-4 text-blue-600 rounded" />
-            </div>
-            <div className="flex items-center justify-between">
-              <label className="text-sm text-slate-700">Show Reserved/Maintenance</label>
-              <input type="checkbox" defaultChecked className="w-4 h-4 text-blue-600 rounded" />
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <h4 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Alert Thresholds</h4>
-            
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Full Capacity Alert (%)</label>
-              <div className="flex items-center gap-2">
-                <input type="range" min="50" max="100" defaultValue="85" className="flex-1" />
-                <span className="text-sm text-slate-600 w-12">85%</span>
-              </div>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Low Availability Alert (%)</label>
-              <div className="flex items-center gap-2">
-                <input type="range" min="0" max="50" defaultValue="20" className="flex-1" />
-                <span className="text-sm text-slate-600 w-12">20%</span>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Maintenance Threshold (mins)</label>
-              <input type="number" defaultValue="30" className="w-full px-3 py-2 border rounded-lg text-sm bg-slate-50" />
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                Confidence Trigger: {(settings.confidence / 100).toFixed(2)}
+              </label>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={settings.confidence}
+                onChange={e => updateField('confidence', Number(e.target.value))}
+                className="w-full"
+              />
+              <p className="mt-1 text-xs text-slate-400">
+                Minimum confidence a YOLOv8 person detection needs before it counts toward a table.
+              </p>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="mt-8 bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-        <h3 className="text-lg font-semibold text-slate-700 mb-4 flex items-center gap-2"><Sliders size={20}/> Floor Configuration</h3>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-slate-50 p-4 rounded-lg">
-            <h4 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500 mb-3">1st Floor</h4>
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Floor Name</label>
-                <input type="text" defaultValue="Main Dining" className="w-full px-3 py-2 border rounded-lg text-sm bg-white" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Max Capacity</label>
-                <input type="number" defaultValue="20" className="w-full px-3 py-2 border rounded-lg text-sm bg-white" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-slate-50 p-4 rounded-lg">
-            <h4 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500 mb-3">2nd Floor</h4>
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Floor Name</label>
-                <input type="text" defaultValue="Private Dining" className="w-full px-3 py-2 border rounded-lg text-sm bg-white" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Max Capacity</label>
-                <input type="number" defaultValue="15" className="w-full px-3 py-2 border rounded-lg text-sm bg-white" />
-              </div>
-            </div>
-          </div>
-        </div>
+      {/* --- Save bar -------------------------------------------------------- */}
+      <div className="mt-8 flex items-center gap-4">
+        <button
+          onClick={handleSave}
+          className="flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700"
+        >
+          <Save size={16} /> Save Settings
+        </button>
+        {saved && (
+          <span className="flex items-center gap-1.5 text-sm font-medium text-green-600">
+            <CheckCircle2 size={16} /> Settings saved
+          </span>
+        )}
       </div>
     </div>
   );

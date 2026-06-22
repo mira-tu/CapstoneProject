@@ -4,7 +4,7 @@ import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import AdminTopbar from '../layouts/AdminTopbar';
 
-const TableManagement = ({ tables, onAdd, onDelete, onUpdate, onStatusOverride }) => {
+const TableManagement = ({ tables, onAdd, onDelete, onUpdate, onStatusOverride, onRestoreAuto }) => {
   const [newId, setNewId] = useState('');
   const [newLabel, setNewLabel] = useState('');
   const [newCapacity, setNewCapacity] = useState(4);
@@ -21,7 +21,6 @@ const TableManagement = ({ tables, onAdd, onDelete, onUpdate, onStatusOverride }
   const [tableToDelete, setTableToDelete] = useState(null);
 
   const floor1Tables = tables.filter(table => table.floor === 1 || !table.floor);
-  const floor2Tables = tables.filter(table => table.floor === 2);
   const selectedTable = tables.find(table => table.id === selectedId) || tables[0] || null;
 
   const handleSubmit = (e) => {
@@ -123,6 +122,13 @@ const TableManagement = ({ tables, onAdd, onDelete, onUpdate, onStatusOverride }
     }
   };
 
+  const handleRestoreAuto = () => {
+    if (selectedTable && onRestoreAuto) {
+      onRestoreAuto(selectedTable.id);
+      toast.success(`Table ${selectedTable.id} returned to automatic detection`);
+    }
+  };
+
   const renderInventorySection = (title, list) => (
     <section className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900">
       <div className="flex items-center justify-between border-b border-slate-800 bg-slate-950 px-4 py-3">
@@ -207,28 +213,15 @@ const TableManagement = ({ tables, onAdd, onDelete, onUpdate, onStatusOverride }
                   className="w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="mb-1 block text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Capacity</label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={newCapacity}
-                    onChange={e => setNewCapacity(e.target.value)}
-                    className="w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Floor</label>
-                  <select
-                    value={newFloor}
-                    onChange={e => setNewFloor(e.target.value)}
-                    className="w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
-                  >
-                    <option value="1">1st Floor</option>
-                    <option value="2">2nd Floor</option>
-                  </select>
-                </div>
+              <div>
+                <label className="mb-1 block text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Capacity</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={newCapacity}
+                  onChange={e => setNewCapacity(e.target.value)}
+                  className="w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
+                />
               </div>
               <button type="submit" className="w-full rounded-lg bg-blue-600 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700">
                 Add Asset
@@ -284,6 +277,14 @@ const TableManagement = ({ tables, onAdd, onDelete, onUpdate, onStatusOverride }
                       Maintenance
                     </button>
                   </div>
+                  {!selectedTable.auto && (
+                    <button
+                      onClick={handleRestoreAuto}
+                      className="mt-2 w-full rounded-lg bg-emerald-600 py-2 text-xs font-semibold text-white hover:bg-emerald-700"
+                    >
+                      Restore Automatic Detection
+                    </button>
+                  )}
                 </div>
               </div>
             ) : (
@@ -293,23 +294,14 @@ const TableManagement = ({ tables, onAdd, onDelete, onUpdate, onStatusOverride }
         </div>
 
         <div className="space-y-6">
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3">
             <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4 text-center">
-              <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Total</p>
+              <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Total Tables</p>
               <p className="mt-1 text-2xl font-bold text-white">{tables.length}</p>
-            </div>
-            <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4 text-center">
-              <p className="text-xs uppercase tracking-[0.2em] text-slate-500">1st Floor</p>
-              <p className="mt-1 text-2xl font-bold text-white">{floor1Tables.length}</p>
-            </div>
-            <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4 text-center">
-              <p className="text-xs uppercase tracking-[0.2em] text-slate-500">2nd Floor</p>
-              <p className="mt-1 text-2xl font-bold text-white">{floor2Tables.length}</p>
             </div>
           </div>
 
-          {renderInventorySection('1st Floor', floor1Tables)}
-          {renderInventorySection('2nd Floor', floor2Tables)}
+          {renderInventorySection('Dining Area', floor1Tables)}
         </div>
       </div>
 
@@ -342,28 +334,15 @@ const TableManagement = ({ tables, onAdd, onDelete, onUpdate, onStatusOverride }
                   className="w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="mb-1 block text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Capacity</label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={editForm.capacity}
-                    onChange={e => setEditForm({ ...editForm, capacity: e.target.value })}
-                    className="w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Floor</label>
-                  <select
-                    value={editForm.floor}
-                    onChange={e => setEditForm({ ...editForm, floor: e.target.value })}
-                    className="w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
-                  >
-                    <option value="1">1st Floor</option>
-                    <option value="2">2nd Floor</option>
-                  </select>
-                </div>
+              <div>
+                <label className="mb-1 block text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Capacity</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={editForm.capacity}
+                  onChange={e => setEditForm({ ...editForm, capacity: e.target.value })}
+                  className="w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
+                />
               </div>
               <button type="submit" className="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700">
                 <Save size={16} /> Save Changes
