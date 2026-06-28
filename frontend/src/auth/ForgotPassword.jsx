@@ -1,5 +1,5 @@
 import React from 'react';
-import { Mail, ArrowLeft } from 'lucide-react';
+import { Mail } from 'lucide-react';
 import tableyeLogo from '../assets/tableye-logo.png';
 
 const ForgotPassword = ({ onViewChange }) => (
@@ -16,9 +16,7 @@ const ForgotPassword = ({ onViewChange }) => (
       <div className="flex items-center justify-center p-8 md:p-10">
         <div className="w-full max-w-xs">
           <div className="flex min-h-[420px] flex-col justify-center">
-            <div>
-              <h3 className="text-center text-4xl font-bold text-slate-900">Forgot Password?</h3>
-            </div>
+            <h3 className="text-center text-4xl font-bold text-slate-900">Forgot Password?</h3>
 
             <div className="mt-8 space-y-5">
               <div>
@@ -32,12 +30,11 @@ const ForgotPassword = ({ onViewChange }) => (
                   />
                 </div>
               </div>
-
               <div className="flex justify-end">
                 <button
                   type="button"
                   onClick={() => onViewChange('login')}
-                  className="inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700"
+                  className="text-sm font-medium text-blue-600 hover:text-blue-700"
                 >
                   Back to login
                 </button>
@@ -46,6 +43,10 @@ const ForgotPassword = ({ onViewChange }) => (
 
             <button
               type="button"
+              onClick={() => {
+                alert('If this email is registered, a reset link has been sent.');
+                onViewChange('login');
+              }}
               className="mt-6 w-full rounded-xl bg-blue-600 py-3 font-semibold text-white transition hover:bg-blue-700"
             >
               Send Reset Link

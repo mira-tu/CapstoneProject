@@ -1,32 +1,30 @@
 import React from 'react';
+import { STATUS_COLORS_LIGHT, STATUS_COLORS_DARK } from '../../constants/tableStatus';
 
-const TableCard = ({ table, isAdmin, showSeats = true }) => {
-  const statusColors = {
-    vacant:      'border-green-400 bg-green-50 text-green-800',
-    full:        'border-red-400 bg-red-50 text-red-800',
-    partial:     'border-yellow-400 bg-yellow-50 text-yellow-800',
-    maintenance: 'border-slate-300 bg-slate-100 text-slate-600',
-    reserved:    'border-blue-300 bg-blue-50 text-blue-700',
-    merged:      'border-orange-400 bg-orange-50 text-orange-800',
-  };
-
-  const statusColorsDark = {
-    vacant:      'border-green-500 bg-green-950 text-green-400 shadow-[0_0_15px_rgba(34,197,94,0.3)]',
-    full:        'border-slate-800 bg-slate-800 text-slate-500 opacity-50',
-    partial:     'border-yellow-500 bg-yellow-950 text-yellow-400',
-    maintenance: 'border-slate-800 bg-slate-900 text-slate-600 border-dashed',
-    reserved:    'border-blue-700 bg-blue-950 text-blue-400',
-    merged:      'border-orange-500 bg-orange-950 text-orange-400',
-  };
-
+/**
+ * TableCard
+ *
+ * Compact card used in the Admin Dashboard grid.
+ * Uses a light color theme when isAdmin=true, dark theme otherwise.
+ *
+ * @param {object}  table      - Table data object.
+ * @param {boolean} isAdmin    - Switches between light (admin) and dark (public) theme.
+ * @param {boolean} showSeats  - Whether to show the seat count.
+ */
+const TableCard = ({ table, isAdmin = false, showSeats = true }) => {
   // Cap capacity at 6 per project spec.
   const capacity = Math.min(table.capacity || 4, 6);
-  const currentColors = isAdmin ? statusColors[table.status] : statusColorsDark[table.status];
+  const currentColors = isAdmin
+    ? STATUS_COLORS_LIGHT[table.status] || STATUS_COLORS_LIGHT.vacant
+    : STATUS_COLORS_DARK[table.status] || STATUS_COLORS_DARK.vacant;
+
   const isMerged = table.merged || table.occupied > capacity;
   const extraSeats = Math.max(0, table.occupied - capacity);
 
   return (
-    <div className={`relative flex min-h-[96px] flex-col items-center justify-center rounded-xl border-2 p-2 text-center transition-all ${currentColors}`}>
+    <div
+      className={`relative flex min-h-[96px] flex-col items-center justify-center rounded-xl border-2 p-2 text-center transition-all ${currentColors}`}
+    >
       <h4 className="text-sm font-bold">{table.id}</h4>
       <span className="mt-0.5 text-[9px] font-semibold uppercase tracking-wider">{table.status}</span>
 
@@ -57,13 +55,10 @@ const TableCard = ({ table, isAdmin, showSeats = true }) => {
           )}
           {!isMerged && (
             <p className="mt-0.5 text-[9px] opacity-80">
-              {table.status === 'vacant'
-                ? 'Ready now'
-                : table.status === 'partial'
-                  ? 'Limited seats'
-                  : table.status === 'full'
-                    ? 'Occupied'
-                    : 'Closed'}
+              {table.status === 'vacant'   ? 'Ready now'
+               : table.status === 'partial' ? 'Limited seats'
+               : table.status === 'full'    ? 'Occupied'
+               : 'Closed'}
             </p>
           )}
         </div>

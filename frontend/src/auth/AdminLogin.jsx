@@ -16,16 +16,18 @@ const AdminLogin = ({ onViewChange }) => (
 
       <div className="flex items-center justify-center p-8 md:p-10">
         <div className="flex min-h-[420px] flex-col justify-center">
-          <div>
-            <h3 className="text-center text-4xl font-bold text-slate-900">Welcome Back!</h3>
-          </div>
+          <h3 className="text-center text-4xl font-bold text-slate-900">Welcome Back!</h3>
 
           <div className="mt-8 space-y-5">
             <div>
               <label className="mb-2 block text-sm font-medium text-slate-700">Username</label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                <input type="text" placeholder="admin" className="w-full rounded-xl border border-slate-300 bg-slate-50 py-3 pl-10 pr-4 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100" />
+                <input
+                  type="text"
+                  placeholder="admin"
+                  className="w-full rounded-xl border border-slate-300 bg-slate-50 py-3 pl-10 pr-4 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100"
+                />
               </div>
             </div>
 
@@ -33,7 +35,11 @@ const AdminLogin = ({ onViewChange }) => (
               <label className="block text-sm font-medium text-slate-700">Password</label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                <input type="password" placeholder="••••••••" className="w-full rounded-xl border border-slate-300 bg-slate-50 py-3 pl-10 pr-4 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100" />
+                <input
+                  type="password"
+                  placeholder="••••••••"
+                  className="w-full rounded-xl border border-slate-300 bg-slate-50 py-3 pl-10 pr-4 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100"
+                />
               </div>
               <div className="flex justify-end">
                 <button

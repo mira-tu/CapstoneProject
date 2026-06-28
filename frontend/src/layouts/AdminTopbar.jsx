@@ -1,5 +1,16 @@
 import React from 'react';
 
+/**
+ * AdminTopbar
+ *
+ * Reusable page header used at the top of every admin page.
+ * Accepts a title, optional subtitle, and an optional action slot
+ * (e.g. a toggle button placed on the right side).
+ *
+ * @param {string}      title    - Page title.
+ * @param {string}      subtitle - Optional description line below the title.
+ * @param {ReactNode}   action   - Optional element rendered on the right side.
+ */
 const AdminTopbar = ({ title, subtitle, action }) => (
   <div className="top-0 z-20 mb-8 w-full rounded-xl border border-slate-200 bg-slate-50/95 px-5 py-4 shadow-sm backdrop-blur-md">
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

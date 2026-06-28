@@ -7,9 +7,14 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Dependencies
 node_modules
+frontend/node_modules
+
+# Build output
 dist
 dist-ssr
+frontend/dist
 *.local
 
 # Editor directories and files
@@ -25,3 +30,15 @@ dist-ssr
 
 # Project tooling config (local only)
 .kiro
+
+# Python backend
+backend/.env
+backend/__pycache__/
+backend/**/__pycache__/
+*.pyc
+*.pyo
+
+# Python virtual environments
+venv/
+.venv/
+env/
