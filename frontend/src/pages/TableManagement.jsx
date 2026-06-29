@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, Edit3, Eye, AlertTriangle } from 'lucide-react';
+import { Plus, Trash2, Edit3, Eye, AlertTriangle, ChevronDown } from 'lucide-react';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import AdminTopbar from '../layouts/AdminTopbar';
@@ -28,10 +28,12 @@ const TableManagement = ({ tables, onAdd, onDelete, onUpdate, onStatusOverride, 
   const [newId,       setNewId]       = useState('');
   const [newLabel,    setNewLabel]    = useState('');
   const [newCapacity, setNewCapacity] = useState(4);
+  const [newFloor,    setNewFloor]    = useState(1);
+  const [newSection,  setNewSection]  = useState('');
 
   // ── Selection & modal state ─────────────────────────────────────────────
   const [selectedId,    setSelectedId]    = useState('');
-  const [editForm,      setEditForm]      = useState({ id: '', label: '', capacity: 4, floor: 1 });
+  const [editForm,      setEditForm]      = useState({ id: '', label: '', capacity: 4, floor: 1, section: '' });
   const [showEdit,      setShowEdit]      = useState(false);
   const [showView,      setShowView]      = useState(false);
   const [showDelete,    setShowDelete]    = useState(false);
@@ -45,7 +47,10 @@ const TableManagement = ({ tables, onAdd, onDelete, onUpdate, onStatusOverride, 
   // ── Add ─────────────────────────────────────────────────────────────────
   const handleAdd = (e) => {
     e.preventDefault();
-    if (!newId || !newLabel) { toast.error('Please fill in all required fields'); return; }
+    if (!newId || !newLabel) { 
+      toast.error('Please fill in all required fields'); 
+      return; 
+    }
 
     onAdd({
       id:          newId.toUpperCase().trim(),
@@ -55,24 +60,40 @@ const TableManagement = ({ tables, onAdd, onDelete, onUpdate, onStatusOverride, 
       occupied:    0,
       conf:        100,
       auto:        true,
-      floor:       1,
+      floor:       parseInt(newFloor || 1),
+      section:     newSection || 'General',
       coordinates: [[100, 100], [200, 100], [200, 200], [100, 200]],
     });
 
     toast.success(`Table ${newId.toUpperCase().trim()} added successfully`);
-    setNewId(''); setNewLabel(''); setNewCapacity(4);
+    
+    // Reset form
+    setNewId(''); 
+    setNewLabel(''); 
+    setNewCapacity(4);
+    setNewFloor(1);
+    setNewSection('');
   };
 
   // ── Edit ─────────────────────────────────────────────────────────────────
   const openEdit = (table) => {
     setTableToEdit(table);
-    setEditForm({ id: table.id, label: table.label || '', capacity: table.capacity || 4, floor: table.floor || 1 });
+    setEditForm({ 
+      id: table.id, 
+      label: table.label || '', 
+      capacity: table.capacity || 4, 
+      floor: table.floor || 1,
+      section: table.section || ''
+    });
     setShowEdit(true);
   };
 
   const handleEditSubmit = (e) => {
     e.preventDefault();
-    if (!editForm.id || !editForm.label) { toast.error('Please fill in all required fields'); return; }
+    if (!editForm.id || !editForm.label) { 
+      toast.error('Please fill in all required fields'); 
+      return; 
+    }
 
     const updated = {
       ...tableToEdit,
@@ -80,6 +101,7 @@ const TableManagement = ({ tables, onAdd, onDelete, onUpdate, onStatusOverride, 
       label:    editForm.label.trim(),
       capacity: parseInt(editForm.capacity || 4),
       floor:    parseInt(editForm.floor || 1),
+      section:  editForm.section || 'General',
     };
 
     onUpdate(updated);
@@ -125,31 +147,104 @@ const TableManagement = ({ tables, onAdd, onDelete, onUpdate, onStatusOverride, 
         subtitle="Create, edit, preview, and remove table records."
       />
 
-      <div className="grid grid-cols-1 gap-8 xl:grid-cols-[0.9fr_1.1fr]">
-        {/* ── Left column ─────────────────────────────────────── */}
-        <div className="space-y-6">
-          {/* Add form */}
+      {/* Summary Cards */}
+      <div className="xl:col-span-12 grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 text-center">
+          <p className="text-xs uppercase tracking-[0.2em] text-slate-500">TOTAL TABLES</p>
+          <p className="mt-1 text-4xl font-bold text-white">{tables.length}</p>
+        </div>
+        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 text-center">
+          <p className="text-xs uppercase tracking-[0.2em] text-slate-500">TABLES ADDED</p>
+          <p className="mt-1 text-4xl font-bold text-emerald-400">0</p>
+        </div>
+        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 text-center">
+          <p className="text-xs uppercase tracking-[0.2em] text-slate-500">TABLES REMOVED</p>
+          <p className="mt-1 text-4xl font-bold text-rose-400">0</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
+        {/* Create Asset + Selected Asset (Side by Side) */}
+        <div className="xl:col-span-12 grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Create Asset */}
           <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
-            <h3 className="mb-4 flex items-center gap-2 text-lg font-bold text-white">
+            <h3 className="mb-5 flex items-center gap-2 text-lg font-bold text-white">
               <Plus size={20} /> Create Asset
             </h3>
-            <form onSubmit={handleAdd} className="space-y-4">
-              <Field label="Table ID">
-                <input type="text" placeholder="T05" value={newId} onChange={e => setNewId(e.target.value)} className={inputCls} />
+            
+            <form onSubmit={handleAdd} className="space-y-5">
+              <Field label="TABLE ID">
+                <input 
+                  type="text" 
+                  placeholder="T05" 
+                  value={newId} 
+                  onChange={e => setNewId(e.target.value)} 
+                  className={inputCls} 
+                />
               </Field>
-              <Field label="Label">
-                <input type="text" placeholder="Corner Booth" value={newLabel} onChange={e => setNewLabel(e.target.value)} className={inputCls} />
+              
+              <Field label="LABEL">
+                <input 
+                  type="text" 
+                  placeholder="Corner Booth" 
+                  value={newLabel} 
+                  onChange={e => setNewLabel(e.target.value)} 
+                  className={inputCls} 
+                />
               </Field>
-              <Field label="Capacity">
-                <input type="number" min="1" value={newCapacity} onChange={e => setNewCapacity(e.target.value)} className={inputCls} />
-              </Field>
-              <button type="submit" className="w-full rounded-lg bg-blue-600 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">
+
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="CAPACITY">
+                  <input 
+                    type="number" 
+                    min="1" 
+                    value={newCapacity} 
+                    onChange={e => setNewCapacity(e.target.value)} 
+                    className={inputCls} 
+                  />
+                </Field>
+                <Field label="FLOOR">
+                  <input 
+                    type="number" 
+                    min="1" 
+                    value={newFloor} 
+                    onChange={e => setNewFloor(e.target.value)} 
+                    className={inputCls} 
+                  />
+                </Field>
+              </div>
+
+                <Field label="SECTION / AREA">
+                  <div className="relative">
+                    <select 
+                      value={newSection} 
+                      onChange={e => setNewSection(e.target.value)} 
+                      className="peer w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2.5 text-sm text-white outline-none focus:border-blue-500 appearance-none cursor-pointer pr-10 hover:bg-slate-900 transition-colors"
+                    >
+                      <option value="">Select Area</option>
+                      <option value="Window">Window Booth</option>
+                      <option value="Center">Center Area</option>
+                      <option value="Bar">Bar Counter</option>
+                      <option value="Private">Private Dining</option>
+                      <option value="Outdoor">Outdoor</option>
+                    </select>
+                    <ChevronDown 
+                      size={18} 
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none transition-transform duration-200 peer-focus:rotate-180" 
+                    />
+                  </div>
+                </Field>
+
+              <button 
+                type="submit" 
+                className="w-full rounded-lg bg-blue-600 py-3 text-sm font-semibold text-white hover:bg-blue-700 mt-2"
+              >
                 Add Asset
               </button>
             </form>
           </div>
 
-          {/* Selected asset panel */}
+          {/* Selected Asset */}
           <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
             <h3 className="mb-4 text-lg font-bold text-white">Selected Asset</h3>
             {selectedTable ? (
@@ -158,9 +253,11 @@ const TableManagement = ({ tables, onAdd, onDelete, onUpdate, onStatusOverride, 
                   <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Asset Details</p>
                   <h4 className="text-2xl font-bold text-white">{selectedTable.id}</h4>
                   <p className="text-sm text-slate-300">{selectedTable.label}</p>
+                  
                   <div className="grid grid-cols-2 gap-3 text-sm">
                     <MiniStat label="Capacity"       value={selectedTable.capacity} />
                     <MiniStat label="Floor"          value={selectedTable.floor || 1} />
+                    <MiniStat label="Section"        value={selectedTable.section || 'General'} />
                     <MiniStat label="Current Status" value={<span className="capitalize">{selectedTable.status || 'vacant'}</span>} />
                     <MiniStat label="Occupied"       value={`${selectedTable.occupied || 0} / ${selectedTable.capacity}`} />
                   </div>
@@ -190,15 +287,10 @@ const TableManagement = ({ tables, onAdd, onDelete, onUpdate, onStatusOverride, 
           </div>
         </div>
 
-        {/* ── Right column — inventory list ────────────────────── */}
-        <div className="space-y-6">
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4 text-center">
-            <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Total Tables</p>
-            <p className="mt-1 text-2xl font-bold text-white">{tables.length}</p>
-          </div>
-
+        {/* Table List */}
+        <div className="xl:col-span-12">
           <InventorySection
-            title="Dining Area"
+            title="DINING AREA"
             list={floor1Tables}
             selectedId={selectedTable?.id}
             onSelect={setSelectedId}
@@ -209,10 +301,10 @@ const TableManagement = ({ tables, onAdd, onDelete, onUpdate, onStatusOverride, 
         </div>
       </div>
 
-      {/* ── Modals ──────────────────────────────────────────────── */}
-      {showEdit   && tableToEdit   && <EditModal   editForm={editForm} setEditForm={setEditForm} onSubmit={handleEditSubmit} onClose={() => setShowEdit(false)}   />}
-      {showView   && tableToView   && <ViewModal   table={tableToView}   onClose={() => setShowView(false)}   />}
-      {showDelete && tableToDelete && <DeleteModal table={tableToDelete} onConfirm={handleDeleteConfirm}       onClose={() => setShowDelete(false)} />}
+      {/* Modals */}
+      {showEdit && tableToEdit && <EditModal editForm={editForm} setEditForm={setEditForm} onSubmit={handleEditSubmit} onClose={() => setShowEdit(false)} />}
+      {showView && tableToView && <ViewModal table={tableToView} onClose={() => setShowView(false)} />}
+      {showDelete && tableToDelete && <DeleteModal table={tableToDelete} onConfirm={handleDeleteConfirm} onClose={() => setShowDelete(false)} />}
 
       <ToastContainer position="top-center" autoClose={3000} theme="dark" />
     </div>

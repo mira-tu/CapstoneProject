@@ -35,13 +35,25 @@ const ViewModal = ({ table, onClose }) => (
         </DetailBlock>
 
         <div className="grid grid-cols-2 gap-3">
-          <DetailBlock label="Capacity"><p className="text-lg text-white">{table.capacity}</p></DetailBlock>
-          <DetailBlock label="Floor"><p className="text-lg text-white">{table.floor || 1}</p></DetailBlock>
+          <DetailBlock label="Capacity">
+            <p className="text-lg text-white">{table.capacity}</p>
+          </DetailBlock>
+          <DetailBlock label="Floor">
+            <p className="text-lg text-white">{table.floor || 1}</p>
+          </DetailBlock>
         </div>
 
+        <DetailBlock label="Section / Area">
+          <p className="text-lg text-white">{table.section || 'General'}</p>
+        </DetailBlock>
+
         <div className="grid grid-cols-2 gap-3">
-          <DetailBlock label="Status"><p className="text-lg text-white capitalize">{table.status || 'vacant'}</p></DetailBlock>
-          <DetailBlock label="Occupied"><p className="text-lg text-white">{table.occupied || 0} / {table.capacity}</p></DetailBlock>
+          <DetailBlock label="Status">
+            <p className="text-lg text-white capitalize">{table.status || 'vacant'}</p>
+          </DetailBlock>
+          <DetailBlock label="Occupied">
+            <p className="text-lg text-white">{table.occupied || 0} / {table.capacity}</p>
+          </DetailBlock>
         </div>
 
         <DetailBlock label="Auto Mode">

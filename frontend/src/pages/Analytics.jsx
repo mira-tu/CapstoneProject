@@ -13,17 +13,18 @@ import AdminTopbar from '../layouts/AdminTopbar';
 const Analytics = ({ logs = [] }) => {
   const [filter, setFilter] = useState('');
 
-  const filteredEvents = useMemo(() => {
-    const query = filter.trim().toLowerCase();
-    if (!query) return logs;
-    return logs.filter(entry =>
-      (entry.time     || '').toLowerCase().includes(query) ||
-      (entry.table    || '').toLowerCase().includes(query) ||
-      (entry.previous || '').toLowerCase().includes(query) ||
-      (entry.current  || '').toLowerCase().includes(query) ||
-      (entry.source   || '').toLowerCase().includes(query),
-    );
-  }, [filter, logs]);
+const filteredEvents = useMemo(() => {
+  const query = filter.trim().toLowerCase();
+  if (!query) return logs;
+
+  return logs.filter(entry => 
+    (entry.time     || '').toLowerCase().includes(query) ||
+    (entry.table    || '').toLowerCase().includes(query) ||
+    (entry.previous || '').toLowerCase().includes(query) ||
+    (entry.current  || '').toLowerCase().includes(query) ||
+    (entry.source   || '').toLowerCase().includes(query)
+  );
+}, [filter, logs]);
 
   return (
     <div className="p-8 space-y-8 w-full max-w-7xl">
@@ -39,13 +40,25 @@ const Analytics = ({ logs = [] }) => {
             <Activity size={16} className="text-slate-600" />
             <h3 className="font-semibold text-slate-700">Historical Occupancy Report</h3>
           </div>
-          <input
-            type="text"
-            placeholder="Filter logs..."
-            value={filter}
-            onChange={e => setFilter(e.target.value)}
-            className="px-3 py-1.5 border border-slate-200 rounded-md text-sm outline-none focus:ring-1 focus:ring-blue-500"
-          />
+          
+          <div className="flex items-center gap-4">
+            <div className="text-sm text-slate-500">
+              Today: <span className="font-medium text-slate-700">{new Date().toLocaleDateString('en-US', { 
+                weekday: 'long', 
+                month: 'long', 
+                day: 'numeric', 
+                year: 'numeric' 
+              })}</span>
+            </div>
+            
+            <input
+              type="text"
+              placeholder="Filter logs... (time, table, status...)"
+              value={filter}
+              onChange={e => setFilter(e.target.value)}
+              className="px-3 py-1.5 border border-slate-200 rounded-md text-sm outline-none focus:ring-1 focus:ring-blue-500 w-72"
+            />
+          </div>
         </div>
 
         {/* Table body */}
@@ -70,7 +83,7 @@ const Analytics = ({ logs = [] }) => {
               ) : (
                 filteredEvents.map((entry, index) => (
                   <tr key={index}>
-                    <td className="px-6 py-4 text-slate-500">{entry.time}</td>
+                    <td className="px-6 py-4 text-slate-500">{entry.time ? entry.time : '—'}</td>
                     <td className="px-6 py-4 font-medium text-slate-800">{entry.table}</td>
                     <td className="px-6 py-4 text-slate-500">{entry.previous}</td>
                     <td className="px-6 py-4 font-medium text-slate-800">{entry.current}</td>

@@ -1,5 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Camera, Save } from 'lucide-react';
+import React, { useState, useRef, useCallback } from 'react';
+import { Camera, Save, Upload } from 'lucide-react';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import AdminTopbar from '../layouts/AdminTopbar';
 
 /**
@@ -18,159 +20,182 @@ import AdminTopbar from '../layouts/AdminTopbar';
  * @param {Function} setSelectedTableId - Setter for selectedTableId.
  */
 const CameraCalibration = ({ tables = [], setTables, selectedTableId, setSelectedTableId }) => {
-  const [points, setPoints] = useState([]);
+  const [floorPlan, setFloorPlan] = useState(null);
+  const [floorPlanFileName, setFloorPlanFileName] = useState('');
+  const [positions, setPositions] = useState({});
   const containerRef = useRef(null);
+  const fileInputRef = useRef(null);
 
-  const safeTables        = Array.isArray(tables) ? tables : [];
-  const safeSelectedId    = selectedTableId || safeTables[0]?.id || '';
-  const activeTable       = safeTables.find(t => t.id === safeSelectedId) || safeTables[0] || null;
-  const floor1Tables      = safeTables.filter(t => t.floor === 1 || !t.floor);
+  const safeTables = Array.isArray(tables) ? tables : [];
+  const safeSelectedId = selectedTableId || safeTables[0]?.id || '';
+  const activeTable = safeTables.find(t => t.id === safeSelectedId);
 
-  // Load existing coordinates when the selected table changes.
-  useEffect(() => {
-    setPoints(activeTable?.coordinates ?? []);
-  }, [selectedTableId, tables]);
+  // Load saved positions
+  React.useEffect(() => {
+    const initial = {};
+    safeTables.forEach(t => {
+      if (t.x && t.y) initial[t.id] = { x: t.x, y: t.y };
+    });
+    setPositions(initial);
+  }, [tables]);
 
-  const handleCanvasClick = (e) => {
-    e.stopPropagation();
-    if (!containerRef.current) return;
-    const rect = containerRef.current.getBoundingClientRect();
-    const x = Math.round(e.clientX - rect.left);
-    const y = Math.round(e.clientY - rect.top);
-    // After 4 points, restart from scratch.
-    setPoints(prev => (prev.length >= 4 ? [[x, y]] : [...prev, [x, y]]));
+  const handleFloorPlanUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setFloorPlan(URL.createObjectURL(file));
+      setFloorPlanFileName(file.name);
+      toast.success('Floor plan uploaded successfully');
+    }
   };
 
-  const handleSaveCalibration = () => {
-    if (points.length < 4) {
-      alert('Please map exactly 4 polygon points to calibrate the table region.');
-      return;
-    }
-    if (!setTables || !safeSelectedId) {
-      alert('Calibration setup is missing table state.');
-      return;
-    }
+  const handleContainerClick = (e) => {
+    if (!containerRef.current || !safeSelectedId) return;
 
-    // Compute the centroid of the 4 points and convert to % of container.
-    const container = containerRef.current;
-    const w  = container ? container.offsetWidth  : 1;
-    const h  = container ? container.offsetHeight : 1;
-    const cx = points.reduce((sum, p) => sum + p[0], 0) / points.length;
-    const cy = points.reduce((sum, p) => sum + p[1], 0) / points.length;
-    // Clamp to 5–90% so the table tile never clips the canvas edge.
-    const xPct = Math.min(90, Math.max(5, Math.round((cx / w) * 100)));
-    const yPct = Math.min(90, Math.max(5, Math.round((cy / h) * 100)));
+    const rect = containerRef.current.getBoundingClientRect();
+    const x = Math.round(((e.clientX - rect.left) / rect.width) * 100);
+    const y = Math.round(((e.clientY - rect.top) / rect.height) * 100);
 
-    // TODO (backend stage): replace with saveCalibration(safeSelectedId, points)
+    const clampedX = Math.max(5, Math.min(95, x));
+    const clampedY = Math.max(5, Math.min(95, y));
+
+    setPositions(prev => ({ ...prev, [safeSelectedId]: { x: clampedX, y: clampedY } }));
+    
     setTables(prev => prev.map(t =>
-      t.id === safeSelectedId ? { ...t, coordinates: points, x: xPct, y: yPct } : t,
+      t.id === safeSelectedId ? { ...t, x: clampedX, y: clampedY } : t
     ));
+  };
 
-    alert(`Calibrated [${safeSelectedId}] — floor plan position updated to (${xPct}%, ${yPct}%).`);
+  // Drag & Drop
+  const handleDragStart = (e, tableId) => {
+    e.dataTransfer.setData('tableId', tableId);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    const tableId = e.dataTransfer.getData('tableId');
+    if (!tableId || !containerRef.current) return;
+
+    const rect = containerRef.current.getBoundingClientRect();
+    const x = Math.round(((e.clientX - rect.left) / rect.width) * 100);
+    const y = Math.round(((e.clientY - rect.top) / rect.height) * 100);
+
+    const clampedX = Math.max(5, Math.min(95, x));
+    const clampedY = Math.max(5, Math.min(95, y));
+
+    setPositions(prev => ({ ...prev, [tableId]: { x: clampedX, y: clampedY } }));
+    setTables(prev => prev.map(t =>
+      t.id === tableId ? { ...t, x: clampedX, y: clampedY } : t
+    ));
+  };
+
+  const handleSave = () => {
+    toast.success('Floor plan calibration saved successfully!', {
+      position: "top-center",
+      autoClose: 3000,
+      theme: "dark"
+    });
   };
 
   return (
     <div className="p-8 space-y-8 w-full max-w-7xl">
       <AdminTopbar
-        title="Camera Calibration (ROI)"
-        subtitle="Draw 4-point polygons over the camera feed to establish table spatial zones."
+        title="Camera Calibration"
+        subtitle="Upload floor plan and position tables visually"
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Drawing canvas */}
-        <div className="lg:col-span-2 bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden flex flex-col">
-          <div className="p-4 border-b border-slate-800 bg-slate-950 flex items-center gap-2">
-            <Camera size={14} className="text-blue-400" />
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Calibration Region Drawing Grid</span>
-          </div>
+      {/* Main Floor Plan Area - Full Width */}
+      <div 
+        ref={containerRef}
+        onClick={handleContainerClick}
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={handleDrop}
+        className="bg-slate-900 rounded-3xl border border-slate-800 overflow-hidden relative min-h-[560px] flex items-center justify-center cursor-crosshair"
+      >
+        {floorPlan ? (
+          <>
+            <img src={floorPlan} alt="Floor Plan" className="max-h-full max-w-full object-contain" />
+            
+            {/* Positioned Tables */}
+            {safeTables.map(table => {
+              const pos = positions[table.id];
+              if (!pos) return null;
 
-          <div
-            ref={containerRef}
-            onClick={handleCanvasClick}
-            className="flex-1 bg-slate-950 relative min-h-[380px] flex items-center justify-center p-4 cursor-crosshair"
-          >
-            {/* SVG overlay — pointer-events:none so clicks reach the div above */}
-            <svg className="absolute inset-0 w-full h-full pointer-events-none">
-              {/* Other tables' existing regions (faint) */}
-              {safeTables
-                .filter(t => t.id !== safeSelectedId)
-                .map(t => (
-                  <polygon
-                    key={t.id}
-                    points={t.coordinates?.map(c => c.join(',')).join(' ')}
-                    fill="rgba(59,130,246,0.05)"
-                    stroke="rgba(255,255,255,0.15)"
-                    strokeWidth="1.5"
-                  />
-                ))}
-
-              {/* Active table region (bright blue) */}
-              {points.length > 0 && (
-                <polygon
-                  points={points.map(c => c.join(',')).join(' ')}
-                  fill="rgba(59,130,246,0.25)"
-                  stroke="#3b82f6"
-                  strokeWidth="3"
-                />
-              )}
-
-              {/* Point markers */}
-              {points.map((pt, idx) => (
-                <g key={idx}>
-                  <circle cx={pt[0]} cy={pt[1]} r="6" fill="#3b82f6" stroke="#ffffff" strokeWidth="1.5" />
-                  <text x={pt[0] + 10} y={pt[1] - 10} fill="#ffffff" className="text-[10px] font-bold font-mono">
-                    P{idx + 1}
-                  </text>
-                </g>
-              ))}
-            </svg>
-          </div>
-        </div>
-
-        {/* Controls panel */}
-        <div className="bg-slate-900 rounded-2xl border border-slate-800 p-6 flex flex-col justify-between">
-          <div className="space-y-6">
-            {/* Table selector */}
-            <div className="border-b border-slate-800 pb-4 space-y-3">
-              <span className="text-xs uppercase font-black text-slate-500">Asset Selection</span>
-              <div>
-                <p className="mb-1 text-[10px] uppercase tracking-[0.2em] text-slate-400">Dining Area Tables</p>
-                <select
-                  value={safeSelectedId}
-                  onChange={e => setSelectedTableId?.(e.target.value)}
-                  className="w-full bg-slate-950 text-white border border-slate-800 rounded-lg py-2.5 px-3 text-sm focus:border-blue-500 outline-none"
+              return (
+                <div
+                  key={table.id}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, table.id)}
+                  className={`absolute w-9 h-9 -translate-x-1/2 -translate-y-1/2 rounded-2xl border-2 flex items-center justify-center text-xs font-bold shadow-xl transition-all hover:scale-110 cursor-grab active:cursor-grabbing ${table.id === safeSelectedId ? 'border-blue-500 bg-blue-600' : 'border-white/70 bg-slate-800'}`}
+                  style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
                 >
-                  {floor1Tables.map(t => (
-                    <option key={t.id} value={t.id}>{t.id} – {t.label}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* Coordinate readout */}
-            <div className="space-y-3">
-              <span className="text-xs font-semibold text-slate-400 block">Region Coordinate Points</span>
-              <div className="bg-slate-950 rounded-xl border border-slate-800 p-4 space-y-2 font-mono text-xs">
-                {Array.from({ length: 4 }).map((_, idx) => (
-                  <div key={idx} className="flex justify-between items-center text-slate-500">
-                    <span>Point {idx + 1}:</span>
-                    <span className="text-white font-semibold">
-                      {points[idx] ? `[${points[idx][0]}px, ${points[idx][1]}px]` : 'Unmapped'}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
+                  {table.id}
+                </div>
+              );
+            })}
+          </>
+        ) : (
+          <div className="text-center">
+            <Upload size={64} className="mx-auto mb-6 text-slate-600" />
+            <p className="text-xl text-slate-400">No floor plan uploaded yet</p>
             <button
-              onClick={handleSaveCalibration}
-              className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 rounded-lg text-xs font-bold text-white transition flex items-center justify-center gap-1.5"
+              onClick={() => fileInputRef.current.click()}
+              className="mt-6 px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-xl text-white font-medium"
             >
-              <Save size={14} /> Save Mapped Area
+              Upload Floor Plan Image
             </button>
           </div>
+        )}
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleFloorPlanUpload}
+          className="hidden"
+        />
+      </div>
+
+      {/* Bottom Controls */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Left - Instructions */}
+        <div className="bg-slate-900 rounded-2xl border border-slate-800 p-6">
+          <h3 className="text-white font-semibold mb-4">How to Position Tables</h3>
+          <ol className="space-y-3 text-slate-400 text-[15px]">
+            <li>1. Upload your restaurant floor plan above</li>
+            <li>2. Select a table from the list on the right</li>
+            <li>3. Click anywhere on the floor plan to place it</li>
+            <li>4. Drag the table markers to fine-tune position</li>
+          </ol>
+        </div>
+
+        {/* Right - Table Selector */}
+        <div className="bg-slate-900 rounded-2xl border border-slate-800 p-6">
+          <h3 className="text-white font-semibold mb-4">Select Table to Position</h3>
+          <select
+            value={safeSelectedId}
+            onChange={e => setSelectedTableId?.(e.target.value)}
+            className="w-full bg-slate-950 border border-slate-700 text-white rounded-xl py-3 px-4 focus:border-blue-500 outline-none"
+          >
+            {safeTables.map(t => (
+              <option key={t.id} value={t.id}>
+                {t.id} — {t.label}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
+
+      {/* Centered Save Button */}
+      <div className="flex justify-center mt-8">
+        <button
+          onClick={handleSave}
+          className="px-10 py-4 bg-blue-600 hover:bg-blue-700 rounded-2xl text-white font-semibold flex items-center justify-center gap-3 text-lg shadow-lg min-w-[300px]"
+        >
+          <Save size={22} /> Save All Positions
+        </button>
+      </div>
+
+      <ToastContainer position="top-center" autoClose={3000} theme="dark" />
     </div>
   );
 };
