@@ -7,7 +7,7 @@ import { STATUS_META } from '../constants/tableStatus';
 // Floor access point labels shown on the map header.
 const FLOOR_ACCESS = {
   1: { entrance: 'Cashier', access: 'Upstairs' },
-  2: { entrance: '',        access: 'Downstairs' },
+  2: { entrance: '', access: 'Downstairs' },
 };
 
 /**
@@ -26,13 +26,13 @@ const PublicDashboard = ({ tables, onViewChange }) => {
   // Build per-floor slide data, filtering out empty floors.
   const floorSlides = [
     { number: 1, label: 'Dining Area', tables: tables.filter(t => t.floor === 1 || !t.floor) },
-    { number: 2, label: '2nd Floor',   tables: tables.filter(t => t.floor === 2) },
+    { number: 2, label: '2nd Floor', tables: tables.filter(t => t.floor === 2) },
   ].filter(floor => floor.tables.length > 0);
 
-  const activeFloor  = floorSlides[activeFloorIndex] || floorSlides[0];
+  const activeFloor = floorSlides[activeFloorIndex] || floorSlides[0];
   const activeAccess = FLOOR_ACCESS[activeFloor?.number] || FLOOR_ACCESS[1];
-  const floorVacant  = activeFloor?.tables.filter(t => t.status === 'vacant').length || 0;
-  const floorFull    = activeFloor?.tables.filter(t => t.status === 'full').length   || 0;
+  const floorVacant = activeFloor?.tables.filter(t => t.status === 'vacant').length || 0;
+  const floorFull = activeFloor?.tables.filter(t => t.status === 'full').length || 0;
 
   // Auto-rotate floors.
   useEffect(() => {
@@ -69,9 +69,9 @@ const PublicDashboard = ({ tables, onViewChange }) => {
             {/* Stats row */}
             <div className="grid gap-3 lg:grid-cols-[1fr_auto]">
               <div className="grid gap-3 md:grid-cols-3">
-                <StatTile label="Area"      value={activeFloor.label}                     colorClass="border-slate-700 bg-slate-800/80"            textClass="text-white" />
+                <StatTile label="Area" value={activeFloor.label} colorClass="border-slate-700 bg-slate-800/80" textClass="text-white" />
                 <StatTile label="Available" value={`${floorVacant} / ${activeFloor.tables.length}`} colorClass="border-green-500/30 bg-green-500/10" textClass="text-green-400" />
-                <StatTile label="Full"      value={`${floorFull} Table/s`}                colorClass="border-red-500/30 bg-red-500/10"              textClass="text-white" />
+                <StatTile label="Full" value={`${floorFull} Table/s`} colorClass="border-red-500/30 bg-red-500/10" textClass="text-white" />
               </div>
               {floorSlides.length > 1 && (
                 <div className="flex items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-800/80 px-4">
@@ -118,6 +118,8 @@ const PublicDashboard = ({ tables, onViewChange }) => {
           </section>
         )}
       </main>
+
+
     </div>
   );
 };
@@ -154,7 +156,7 @@ const FloorPlanCanvas = ({ tables }) => {
 
   return groups.map(group => {
     if (group.single) {
-      const t    = group.single;
+      const t = group.single;
       const xPct = t.x ?? 10;
       const yPct = t.y ?? 10;
       return (

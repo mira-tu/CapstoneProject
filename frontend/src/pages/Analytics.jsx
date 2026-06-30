@@ -13,18 +13,18 @@ import AdminTopbar from '../layouts/AdminTopbar';
 const Analytics = ({ logs = [] }) => {
   const [filter, setFilter] = useState('');
 
-const filteredEvents = useMemo(() => {
-  const query = filter.trim().toLowerCase();
-  if (!query) return logs;
+  const filteredEvents = useMemo(() => {
+    const query = filter.trim().toLowerCase();
+    if (!query) return logs;
 
-  return logs.filter(entry => 
-    (entry.time     || '').toLowerCase().includes(query) ||
-    (entry.table    || '').toLowerCase().includes(query) ||
-    (entry.previous || '').toLowerCase().includes(query) ||
-    (entry.current  || '').toLowerCase().includes(query) ||
-    (entry.source   || '').toLowerCase().includes(query)
-  );
-}, [filter, logs]);
+    return logs.filter(entry =>
+      (entry.time || '').toLowerCase().includes(query) ||
+      (entry.table || '').toLowerCase().includes(query) ||
+      (entry.previous || '').toLowerCase().includes(query) ||
+      (entry.current || '').toLowerCase().includes(query) ||
+      (entry.source || '').toLowerCase().includes(query)
+    );
+  }, [filter, logs]);
 
   return (
     <div className="p-8 space-y-8 w-full max-w-7xl">
@@ -40,17 +40,17 @@ const filteredEvents = useMemo(() => {
             <Activity size={16} className="text-slate-600" />
             <h3 className="font-semibold text-slate-700">Historical Occupancy Report</h3>
           </div>
-          
+
           <div className="flex items-center gap-4">
             <div className="text-sm text-slate-500">
-              Today: <span className="font-medium text-slate-700">{new Date().toLocaleDateString('en-US', { 
-                weekday: 'long', 
-                month: 'long', 
-                day: 'numeric', 
-                year: 'numeric' 
+              Today: <span className="font-medium text-slate-700">{new Date().toLocaleDateString('en-US', {
+                weekday: 'long',
+                month: 'long',
+                day: 'numeric',
+                year: 'numeric'
               })}</span>
             </div>
-            
+
             <input
               type="text"
               placeholder="Filter logs... (time, table, status...)"

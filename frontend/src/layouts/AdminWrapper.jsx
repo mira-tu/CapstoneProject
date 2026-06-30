@@ -9,6 +9,7 @@ import {
   Menu,
 } from 'lucide-react';
 import tableyeLogo from '../assets/tableye-logo.png';
+import Footer from '../components/Footer';
 
 /**
  * NavItem
@@ -112,7 +113,10 @@ const AdminWrapper = ({ children, currentView, onViewChange }) => {
 
       {/* ── Main content ────────────────────────────────────────── */}
       <main className="min-w-0 flex-1 flex flex-col bg-slate-50 h-screen overflow-y-auto">
-        {children}
+        <div className="flex-1">
+          {children}
+        </div>
+        <Footer />
       </main>
     </div>
   );

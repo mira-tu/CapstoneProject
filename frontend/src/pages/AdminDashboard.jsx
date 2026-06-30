@@ -9,12 +9,12 @@ import AdminTopbar from '../layouts/AdminTopbar';
  */
 const KpiCard = ({ title, value, icon, color }) => {
   const colorMap = {
-    blue:   'bg-blue-100 text-blue-600',
-    green:  'bg-green-100 text-green-600',
+    blue: 'bg-blue-100 text-blue-600',
+    green: 'bg-green-100 text-green-600',
     yellow: 'bg-yellow-100 text-yellow-600',
-    red:    'bg-red-100 text-red-600',
+    red: 'bg-red-100 text-red-600',
     orange: 'bg-orange-100 text-orange-600',
-    gray:   'bg-slate-100 text-slate-600',
+    gray: 'bg-slate-100 text-slate-600',
   };
   return (
     <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex items-center gap-4">
@@ -38,11 +38,11 @@ const KpiCard = ({ title, value, icon, color }) => {
  * @param {Function} onToggleSim  - Callback to pause / resume the simulation.
  */
 const AdminDashboard = ({ tables, simEnabled = false, onToggleSim }) => {
-  const vacant      = tables.filter(t => t.status === 'vacant').length;
-  const partial     = tables.filter(t => t.status === 'partial').length;
-  const full        = tables.filter(t => t.status === 'full').length;
-  const merged      = tables.filter(t => t.status === 'merged').length;
-  const reserved    = tables.filter(t => t.status === 'reserved').length;
+  const vacant = tables.filter(t => t.status === 'vacant').length;
+  const partial = tables.filter(t => t.status === 'partial').length;
+  const full = tables.filter(t => t.status === 'full').length;
+  const merged = tables.filter(t => t.status === 'merged').length;
+  const reserved = tables.filter(t => t.status === 'reserved').length;
   const maintenance = tables.filter(t => t.status === 'maintenance').length;
 
   const floor1Tables = tables.filter(t => t.floor === 1 || !t.floor);
@@ -74,12 +74,12 @@ const AdminDashboard = ({ tables, simEnabled = false, onToggleSim }) => {
 
       {/* KPI row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6 gap-4 mb-8">
-        <KpiCard title="Total Tables"            value={tables.length}          icon={<LayoutDashboard />} color="blue"   />
-        <KpiCard title="Available"               value={vacant}                 icon={<CheckCircle2 />}    color="green"  />
-        <KpiCard title="Partial"                 value={partial}                icon={<Users />}           color="yellow" />
-        <KpiCard title="Full"                    value={full}                   icon={<Grid2x2 />}         color="red"    />
-        <KpiCard title="Merged"                  value={merged}                 icon={<CombineIcon />}     color="orange" />
-        <KpiCard title="Reserved / Maintenance"  value={reserved + maintenance} icon={<AlertTriangle />}   color="gray"   />
+        <KpiCard title="Total Tables" value={tables.length} icon={<LayoutDashboard />} color="blue" />
+        <KpiCard title="Available" value={vacant} icon={<CheckCircle2 />} color="green" />
+        <KpiCard title="Partial" value={partial} icon={<Users />} color="yellow" />
+        <KpiCard title="Full" value={full} icon={<Grid2x2 />} color="red" />
+        <KpiCard title="Merged" value={merged} icon={<CombineIcon />} color="orange" />
+        <KpiCard title="Reserved / Maintenance" value={reserved + maintenance} icon={<AlertTriangle />} color="gray" />
       </div>
 
       {/* Floor plan grid */}

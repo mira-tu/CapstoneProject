@@ -59,7 +59,7 @@ const CameraCalibration = ({ tables = [], setTables, selectedTableId, setSelecte
     const clampedY = Math.max(5, Math.min(95, y));
 
     setPositions(prev => ({ ...prev, [safeSelectedId]: { x: clampedX, y: clampedY } }));
-    
+
     setTables(prev => prev.map(t =>
       t.id === safeSelectedId ? { ...t, x: clampedX, y: clampedY } : t
     ));
@@ -104,7 +104,7 @@ const CameraCalibration = ({ tables = [], setTables, selectedTableId, setSelecte
       />
 
       {/* Main Floor Plan Area - Full Width */}
-      <div 
+      <div
         ref={containerRef}
         onClick={handleContainerClick}
         onDragOver={(e) => e.preventDefault()}
@@ -114,7 +114,7 @@ const CameraCalibration = ({ tables = [], setTables, selectedTableId, setSelecte
         {floorPlan ? (
           <>
             <img src={floorPlan} alt="Floor Plan" className="max-h-full max-w-full object-contain" />
-            
+
             {/* Positioned Tables */}
             {safeTables.map(table => {
               const pos = positions[table.id];

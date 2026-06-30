@@ -22,7 +22,7 @@ const AdminSettings = ({ simEnabled = false, onToggleSim }) => {
     confidence: 75,
   });
 
- // ==================== CMS CONFIG ====================
+  // ==================== CMS CONFIG ====================
   const [cmsConfig, setCmsConfig] = useState({
     brandName: 'TABLEYE',
     welcomeMessage: 'Live Occupancy Dashboard',
@@ -34,6 +34,7 @@ const AdminSettings = ({ simEnabled = false, onToggleSim }) => {
     showLiveVideoPublicly: false,
     showOccupancyStats: true,
     showTableList: true,
+    footerText: '© 2026 TABLEYE. All Rights Reserved.',
   });
 
   const [logoPreview, setLogoPreview] = useState(null);
@@ -121,7 +122,7 @@ const AdminSettings = ({ simEnabled = false, onToggleSim }) => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        
+
         {/* LEFT SIDE: Camera & Feed */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 h-fit">
           <h3 className="text-lg font-semibold text-slate-700 mb-4 flex items-center gap-2">
@@ -166,7 +167,7 @@ const AdminSettings = ({ simEnabled = false, onToggleSim }) => {
 
         {/* RIGHT SIDE: Detection Model & CMS */}
         <div className="flex flex-col gap-8">
-          
+
           {/* Detection Model */}
           <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
             <h3 className="text-lg font-semibold text-slate-700 mb-4 flex items-center gap-2">
@@ -199,8 +200,8 @@ const AdminSettings = ({ simEnabled = false, onToggleSim }) => {
             <p className="text-sm text-slate-600 mb-6">
               Full control over your public dashboard — logos, colors, images, and visibility.
             </p>
-            
-            <button 
+
+            <button
               onClick={() => setIsCmsOpen(true)}
               className="w-full flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 px-4 py-2.5 rounded-lg text-sm font-bold uppercase tracking-wide transition"
             >
@@ -220,13 +221,14 @@ const AdminSettings = ({ simEnabled = false, onToggleSim }) => {
         </button>
       </div>
 
+
       {/* ========================================================= */}
       {/* 1. CMS CONTENT MANAGEMENT MODAL OVERLAY */}
       {/* ========================================================= */}
       {isCmsOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm">
           <div className="bg-white rounded-3xl shadow-2xl border border-slate-100 w-full max-w-3xl max-h-[92vh] overflow-hidden flex flex-col">
-            
+
             {/* Header */}
             <div className="p-6 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
               <div>
@@ -246,15 +248,22 @@ const AdminSettings = ({ simEnabled = false, onToggleSim }) => {
                 <h4 className="font-semibold text-slate-700 mb-4 flex items-center gap-2 border-b pb-2">
                   <span className="text-blue-600">General</span>
                 </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-1.5">Restaurant / Brand Name</label>
-                    <input type="text" name="brandName" value={cmsConfig.brandName} onChange={handleCmsChange}
-                      className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:border-blue-500 outline-none" />
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-1.5">Restaurant / Brand Name</label>
+                      <input type="text" name="brandName" value={cmsConfig.brandName} onChange={handleCmsChange}
+                        className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:border-blue-500 outline-none" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-1.5">Welcome / Tagline</label>
+                      <input type="text" name="welcomeMessage" value={cmsConfig.welcomeMessage} onChange={handleCmsChange}
+                        className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:border-blue-500 outline-none" />
+                    </div>
                   </div>
                   <div>
-                    <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-1.5">Welcome / Tagline</label>
-                    <input type="text" name="welcomeMessage" value={cmsConfig.welcomeMessage} onChange={handleCmsChange}
+                    <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-1.5">Footer Copyright Text</label>
+                    <input type="text" name="footerText" value={cmsConfig.footerText} onChange={handleCmsChange}
                       className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:border-blue-500 outline-none" />
                   </div>
                 </div>
@@ -263,7 +272,7 @@ const AdminSettings = ({ simEnabled = false, onToggleSim }) => {
               {/* ==================== MEDIA ==================== */}
               <div>
                 <h4 className="font-semibold text-slate-700 mb-4 flex items-center gap-2 border-b pb-2">Media Assets</h4>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   {/* Logo */}
                   <div>
@@ -372,13 +381,13 @@ const AdminSettings = ({ simEnabled = false, onToggleSim }) => {
 
             {/* Footer Actions */}
             <div className="p-6 border-t border-slate-100 bg-slate-50 flex justify-end gap-4">
-              <button 
+              <button
                 onClick={() => setIsCmsOpen(false)}
                 className="px-6 py-3 text-slate-600 hover:bg-slate-100 rounded-2xl font-medium transition"
               >
                 Cancel
               </button>
-              <button 
+              <button
                 onClick={handleCmsSave}
                 className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-2xl shadow-sm transition flex items-center gap-2"
               >
