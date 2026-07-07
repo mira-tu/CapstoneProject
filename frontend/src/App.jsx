@@ -25,6 +25,7 @@ import { useMergeSimulation } from './hooks/useMergeSimulation';
 
 // Shared utilities
 import { computeStatus } from './constants/tableStatus';
+import { DEFAULT_CMS_CONFIG } from './constants/cmsConfig';
 
 /**
  * App
@@ -37,6 +38,12 @@ export default function App() {
   const [currentView,      setCurrentView]      = useState('login');
   const [selectedTableId,  setSelectedTableId]  = useState('T01');
   const [simEnabled,       setSimEnabled]        = useState(true);
+
+  // ── CMS config ────────────────────────────────────────────────────────────
+  // Owned here so both AdminSettings (editor) and PublicDashboard (consumer)
+  // share the same live state. "Applied" state is what PublicDashboard reads;
+  // AdminSettings edits a local draft and pushes it here on "Apply Changes".
+  const [cmsConfig, setCmsConfig] = useState(DEFAULT_CMS_CONFIG);
 
   // ── Shared table state ────────────────────────────────────────────────────
   // x, y = position on the floor plan canvas as a % of the container.
@@ -90,8 +97,8 @@ export default function App() {
       case 'dashboard':        return <AdminDashboard  tables={tables} simEnabled={simEnabled} onToggleSim={() => setSimEnabled(s => !s)} />;
       case 'logs':
       case 'analytics':        return <Analytics       logs={logs} />;
-      case 'settings':         return <AdminSettings   simEnabled={simEnabled} onToggleSim={() => setSimEnabled(s => !s)} />;
-      case 'lobby':            return <PublicDashboard tables={tables} onViewChange={setCurrentView} />;
+      case 'settings':         return <AdminSettings   simEnabled={simEnabled} onToggleSim={() => setSimEnabled(s => !s)} cmsConfig={cmsConfig} onCmsSave={setCmsConfig} />;
+      case 'lobby':            return <PublicDashboard tables={tables} onViewChange={setCurrentView} cmsConfig={cmsConfig} />;
       case 'camera-calibration': return (
         <CameraCalibration
           tables={tables}
@@ -121,7 +128,7 @@ export default function App() {
         {/* Public lobby is accessible without login */}
         <Route
           path="/public"
-          element={<PublicDashboard tables={tables} onViewChange={setCurrentView} />}
+          element={<PublicDashboard tables={tables} onViewChange={setCurrentView} cmsConfig={cmsConfig} />}
         />
 
         {/* Everything else is routed through the view switcher */}
@@ -131,7 +138,7 @@ export default function App() {
             currentView === 'login' || currentView === 'forgot-password' || currentView === 'lobby' ? (
               renderAdminView()
             ) : (
-              <AdminWrapper currentView={currentView} onViewChange={setCurrentView}>
+              <AdminWrapper currentView={currentView} onViewChange={setCurrentView} cmsConfig={cmsConfig}>
                 {renderAdminView()}
               </AdminWrapper>
             )

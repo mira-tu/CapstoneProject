@@ -7,9 +7,10 @@ import AdminTopbar from '../layouts/AdminTopbar';
 /**
  * CameraCalibration
  *
- * Lets the admin draw a 4-point polygon region over the camera feed image
- * for each table. The centroid of those 4 points is saved as the table's
- * (x%, y%) position on the Public Lobby floor plan.
+ * Lets the admin upload a floor plan image, then place each table on it
+ * by clicking or dragging a marker to the right spot. The marker's
+ * (x%, y%) position is saved as that table's spot on the Public Lobby
+ * floor plan. No polygon drawing is needed — just a single point per table.
  *
  * When the Flask backend is ready, replace the local setTables() call in
  * handleSaveCalibration() with saveCalibration() from api/tablesApi.js.

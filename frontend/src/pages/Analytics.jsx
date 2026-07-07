@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Activity, BarChart3, Grid3X3 } from 'lucide-react';
+import { Activity, BarChart3 } from 'lucide-react';
 import AdminTopbar from '../layouts/AdminTopbar';
 
 /**
@@ -40,27 +40,7 @@ const Analytics = ({ logs = [] }) => {
     })).filter((_, idx) => idx >= 10 && idx <= 22);
   }, [logs]);
 
-  // 2. Process logs to build real-time table heatmap indices
-  const heatmapData = useMemo(() => {
-    const tableActivity = {};
-    logs.forEach(entry => {
-      if (!entry.table) return;
-      tableActivity[entry.table] = (tableActivity[entry.table] || 0) + 1;
-    });
-
-    const maxActivity = Math.max(...Object.values(tableActivity), 1);
-    return Object.entries(tableActivity).map(([tableId, count]) => {
-      let intensity = 'bg-slate-50 text-slate-400'; // No interaction
-      const ratio = count / maxActivity;
-      if (ratio > 0 && ratio <= 0.3) intensity = 'bg-emerald-50 border-emerald-200 text-emerald-700 font-medium';
-      else if (ratio > 0.3 && ratio <= 0.7) intensity = 'bg-amber-50 border-amber-200 text-amber-700 font-medium';
-      else if (ratio > 0.7) intensity = 'bg-rose-50 border-rose-200 text-rose-700 font-bold';
-
-      return { tableId, count, intensity };
-    }).sort((a, b) => a.tableId.localeCompare(b.tableId, undefined, { numeric: true }));
-  }, [logs]);
-
-  // 3. Keep original text filtration logic intact
+  // 2. Keep original text filtration logic intact
   const filteredEvents = useMemo(() => {
     const query = filter.trim().toLowerCase();
     if (!query) return logs;
@@ -82,7 +62,7 @@ const Analytics = ({ logs = [] }) => {
       />
 
       {/* Analytics Visualization Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6">
 
         {/* Peak-Hours Chart Card */}
         <div className="bg-white p-5 border border-slate-200 rounded-2xl shadow-sm space-y-4">
@@ -110,38 +90,6 @@ const Analytics = ({ logs = [] }) => {
           </div>
           <div className="pt-4 text-[11px] text-slate-400 italic">
             * Bars reflect frequency of table status alterations processed by the model per operational hour block.
-          </div>
-        </div>
-
-        {/* Heatmap Layout Card */}
-        <div className="bg-white p-5 border border-slate-200 rounded-2xl shadow-sm space-y-4">
-          <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
-            <Grid3X3 size={18} className="text-purple-600" />
-            <h4 className="font-semibold text-slate-800 text-sm">Table Location Activity Matrix</h4>
-          </div>
-
-          {heatmapData.length === 0 ? (
-            <div className="h-36 flex items-center justify-center text-slate-400 text-xs italic">
-              Awaiting system traffic to map venue density trends...
-            </div>
-          ) : (
-            <div className="grid grid-cols-4 sm:grid-cols-5 gap-3 max-h-40 overflow-y-auto p-1">
-              {heatmapData.map((item, idx) => (
-                <div
-                  key={idx}
-                  className={`p-3 border rounded-xl text-center text-xs transition-shadow hover:shadow-xs flex flex-col justify-center items-center ${item.intensity}`}
-                >
-                  <span className="opacity-80 block font-semibold text-[10px]">T-{item.tableId.replace(/\D/g, '') || item.tableId}</span>
-                  <span className="text-[10px] opacity-60 font-normal">{item.count}x updates</span>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <div className="flex justify-between items-center text-[10px] text-slate-400 pt-2 border-t border-slate-50">
-            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-400 inline-block"></span> Light Use</span>
-            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400 inline-block"></span> Moderate Use</span>
-            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-rose-400 inline-block"></span> High Density</span>
           </div>
         </div>
 

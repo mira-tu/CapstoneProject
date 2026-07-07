@@ -226,7 +226,6 @@ const TableManagement = ({ tables, onAdd, onDelete, onUpdate, onStatusOverride, 
                       <option value="Center">Center Area</option>
                       <option value="Bar">Bar Counter</option>
                       <option value="Private">Private Dining</option>
-                      <option value="Outdoor">Outdoor</option>
                     </select>
                     <ChevronDown 
                       size={18} 

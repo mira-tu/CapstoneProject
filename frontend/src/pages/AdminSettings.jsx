@@ -14,33 +14,30 @@ import 'react-toastify/dist/ReactToastify.css';
  *
  * @param {boolean}  simEnabled  - Whether the simulation is active.
  * @param {Function} onToggleSim - Callback to pause / resume the simulation.
+ * @param {object}   cmsConfig   - Currently-applied CMS config, owned by App.jsx.
+ * @param {Function} onCmsSave   - Callback to apply a new CMS config to the public dashboard.
  */
-const AdminSettings = ({ simEnabled = false, onToggleSim }) => {
+const AdminSettings = ({ simEnabled = false, onToggleSim, cmsConfig, onCmsSave }) => {
   const [settings, setSettings] = useState({
     rtspUrl: 'rtsp://192.168.1.100:554/stream1',
     fps: '15',
     confidence: 75,
   });
 
-  // ==================== CMS CONFIG ====================
-  const [cmsConfig, setCmsConfig] = useState({
-    brandName: 'TABLEYE',
-    welcomeMessage: 'Live Occupancy Dashboard',
-    themeColor: '#3b82f6',
-    sidebarColor: '#0f172a',
-    accentColor: '#10b981',
-    textColor: '#1e2937',
-    backgroundColor: '#f8fafc',
-    showLiveVideoPublicly: false,
-    showOccupancyStats: true,
-    showTableList: true,
-    footerText: '© 2026 TABLEYE. All Rights Reserved.',
-  });
-
-  const [logoPreview, setLogoPreview] = useState(null);
-  const [bgImagePreview, setBgImagePreview] = useState(null);
+  // ==================== CMS CONFIG (draft) ====================
+  // Edits happen on a local draft so "Cancel" discards changes; "Apply Changes"
+  // pushes the draft up to App.jsx via onCmsSave, which is what actually
+  // updates the public dashboard.
+  const [cmsDraft, setCmsDraft] = useState(cmsConfig);
 
   const [isCmsOpen, setIsCmsOpen] = useState(false);
+
+  // Reset the draft to the live config whenever the editor is (re)opened,
+  // so stale edits from a previous cancelled session don't resurface.
+  const openCmsEditor = () => {
+    setCmsDraft(cmsConfig);
+    setIsCmsOpen(true);
+  };
 
   const updateField = (field, value) => {
     setSettings(prev => ({ ...prev, [field]: value }));
@@ -48,7 +45,7 @@ const AdminSettings = ({ simEnabled = false, onToggleSim }) => {
 
   const handleCmsChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setCmsConfig(prev => ({
+    setCmsDraft(prev => ({
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
@@ -58,8 +55,7 @@ const AdminSettings = ({ simEnabled = false, onToggleSim }) => {
     const file = e.target.files[0];
     if (file) {
       const previewUrl = URL.createObjectURL(file);
-      setLogoPreview(previewUrl);
-      setCmsConfig(prev => ({ ...prev, logo: previewUrl }));
+      setCmsDraft(prev => ({ ...prev, logo: previewUrl }));
     }
   };
 
@@ -67,19 +63,16 @@ const AdminSettings = ({ simEnabled = false, onToggleSim }) => {
     const file = e.target.files[0];
     if (file) {
       const previewUrl = URL.createObjectURL(file);
-      setBgImagePreview(previewUrl);
-      setCmsConfig(prev => ({ ...prev, backgroundImage: previewUrl }));
+      setCmsDraft(prev => ({ ...prev, backgroundImage: previewUrl }));
     }
   };
 
   const removeLogo = () => {
-    setLogoPreview(null);
-    setCmsConfig(prev => ({ ...prev, logo: null }));
+    setCmsDraft(prev => ({ ...prev, logo: null }));
   };
 
   const removeBgImage = () => {
-    setBgImagePreview(null);
-    setCmsConfig(prev => ({ ...prev, backgroundImage: null }));
+    setCmsDraft(prev => ({ ...prev, backgroundImage: null }));
   };
 
   const handleSave = () => {
@@ -91,12 +84,18 @@ const AdminSettings = ({ simEnabled = false, onToggleSim }) => {
   };
 
   const handleCmsSave = () => {
+    onCmsSave(cmsDraft);
     setIsCmsOpen(false);
     toast.success('CMS Updated - Dashboard settings have been applied.', {
       position: "top-center",
       autoClose: 3000,
       theme: "dark",
     });
+  };
+
+  const handleCmsCancel = () => {
+    setCmsDraft(cmsConfig);
+    setIsCmsOpen(false);
   };
 
   return (
@@ -202,7 +201,7 @@ const AdminSettings = ({ simEnabled = false, onToggleSim }) => {
             </p>
 
             <button
-              onClick={() => setIsCmsOpen(true)}
+              onClick={openCmsEditor}
               className="w-full flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 px-4 py-2.5 rounded-lg text-sm font-bold uppercase tracking-wide transition"
             >
               <Edit size={16} /> Open CMS Editor
@@ -252,18 +251,18 @@ const AdminSettings = ({ simEnabled = false, onToggleSim }) => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                       <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-1.5">Restaurant / Brand Name</label>
-                      <input type="text" name="brandName" value={cmsConfig.brandName} onChange={handleCmsChange}
+                      <input type="text" name="brandName" value={cmsDraft.brandName} onChange={handleCmsChange}
                         className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:border-blue-500 outline-none" />
                     </div>
                     <div>
                       <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-1.5">Welcome / Tagline</label>
-                      <input type="text" name="welcomeMessage" value={cmsConfig.welcomeMessage} onChange={handleCmsChange}
+                      <input type="text" name="welcomeMessage" value={cmsDraft.welcomeMessage} onChange={handleCmsChange}
                         className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:border-blue-500 outline-none" />
                     </div>
                   </div>
                   <div>
                     <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-1.5">Footer Copyright Text</label>
-                    <input type="text" name="footerText" value={cmsConfig.footerText} onChange={handleCmsChange}
+                    <input type="text" name="footerText" value={cmsDraft.footerText} onChange={handleCmsChange}
                       className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:border-blue-500 outline-none" />
                   </div>
                 </div>
@@ -278,9 +277,9 @@ const AdminSettings = ({ simEnabled = false, onToggleSim }) => {
                   <div>
                     <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">Logo</label>
                     <div className="border-2 border-dashed border-slate-300 rounded-2xl p-6 text-center hover:border-blue-400 transition">
-                      {logoPreview ? (
+                      {cmsDraft.logo ? (
                         <div className="relative inline-block">
-                          <img src={logoPreview} alt="Logo preview" className="h-20 mx-auto object-contain rounded-lg" />
+                          <img src={cmsDraft.logo} alt="Logo preview" className="h-20 mx-auto object-contain rounded-lg" />
                           <button onClick={removeLogo} className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full hover:bg-red-600">
                             <Trash2 size={14} />
                           </button>
@@ -302,9 +301,9 @@ const AdminSettings = ({ simEnabled = false, onToggleSim }) => {
                   <div>
                     <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">Background Image (Optional)</label>
                     <div className="border-2 border-dashed border-slate-300 rounded-2xl p-6 text-center hover:border-blue-400 transition">
-                      {bgImagePreview ? (
+                      {cmsDraft.backgroundImage ? (
                         <div className="relative">
-                          <img src={bgImagePreview} alt="Background preview" className="w-full h-32 object-cover rounded-xl" />
+                          <img src={cmsDraft.backgroundImage} alt="Background preview" className="w-full h-32 object-cover rounded-xl" />
                           <button onClick={removeBgImage} className="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-full hover:bg-red-600">
                             <Trash2 size={16} />
                           </button>
@@ -330,27 +329,27 @@ const AdminSettings = ({ simEnabled = false, onToggleSim }) => {
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
                   <div>
                     <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-1.5">Topbar / Theme</label>
-                    <input type="color" name="themeColor" value={cmsConfig.themeColor} onChange={handleCmsChange}
+                    <input type="color" name="themeColor" value={cmsDraft.themeColor} onChange={handleCmsChange}
                       className="w-full h-12 border border-slate-200 rounded-xl cursor-pointer" />
                   </div>
                   <div>
                     <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-1.5">Sidebar</label>
-                    <input type="color" name="sidebarColor" value={cmsConfig.sidebarColor} onChange={handleCmsChange}
+                    <input type="color" name="sidebarColor" value={cmsDraft.sidebarColor} onChange={handleCmsChange}
                       className="w-full h-12 border border-slate-200 rounded-xl cursor-pointer" />
                   </div>
                   <div>
                     <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-1.5">Accent</label>
-                    <input type="color" name="accentColor" value={cmsConfig.accentColor} onChange={handleCmsChange}
+                    <input type="color" name="accentColor" value={cmsDraft.accentColor} onChange={handleCmsChange}
                       className="w-full h-12 border border-slate-200 rounded-xl cursor-pointer" />
                   </div>
                   <div>
                     <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-1.5">Background</label>
-                    <input type="color" name="backgroundColor" value={cmsConfig.backgroundColor} onChange={handleCmsChange}
+                    <input type="color" name="backgroundColor" value={cmsDraft.backgroundColor} onChange={handleCmsChange}
                       className="w-full h-12 border border-slate-200 rounded-xl cursor-pointer" />
                   </div>
                   <div>
                     <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-1.5">Text Color</label>
-                    <input type="color" name="textColor" value={cmsConfig.textColor} onChange={handleCmsChange}
+                    <input type="color" name="textColor" value={cmsDraft.textColor} onChange={handleCmsChange}
                       className="w-full h-12 border border-slate-200 rounded-xl cursor-pointer" />
                   </div>
                 </div>
@@ -361,17 +360,17 @@ const AdminSettings = ({ simEnabled = false, onToggleSim }) => {
                 <h4 className="font-semibold text-slate-700 mb-4 flex items-center gap-2 border-b pb-2">Display Options</h4>
                 <div className="space-y-4">
                   <label className="flex items-center gap-3 cursor-pointer">
-                    <input type="checkbox" name="showLiveVideoPublicly" checked={cmsConfig.showLiveVideoPublicly} onChange={handleCmsChange}
+                    <input type="checkbox" name="showLiveVideoPublicly" checked={cmsDraft.showLiveVideoPublicly} onChange={handleCmsChange}
                       className="w-5 h-5 accent-blue-600" />
                     <span>Show Live Camera Feed publicly</span>
                   </label>
                   <label className="flex items-center gap-3 cursor-pointer">
-                    <input type="checkbox" name="showOccupancyStats" checked={cmsConfig.showOccupancyStats} onChange={handleCmsChange}
+                    <input type="checkbox" name="showOccupancyStats" checked={cmsDraft.showOccupancyStats} onChange={handleCmsChange}
                       className="w-5 h-5 accent-blue-600" />
                     <span>Show Occupancy Statistics</span>
                   </label>
                   <label className="flex items-center gap-3 cursor-pointer">
-                    <input type="checkbox" name="showTableList" checked={cmsConfig.showTableList} onChange={handleCmsChange}
+                    <input type="checkbox" name="showTableList" checked={cmsDraft.showTableList} onChange={handleCmsChange}
                       className="w-5 h-5 accent-blue-600" />
                     <span>Show Detailed Table List</span>
                   </label>
@@ -382,7 +381,7 @@ const AdminSettings = ({ simEnabled = false, onToggleSim }) => {
             {/* Footer Actions */}
             <div className="p-6 border-t border-slate-100 bg-slate-50 flex justify-end gap-4">
               <button
-                onClick={() => setIsCmsOpen(false)}
+                onClick={handleCmsCancel}
                 className="px-6 py-3 text-slate-600 hover:bg-slate-100 rounded-2xl font-medium transition"
               >
                 Cancel

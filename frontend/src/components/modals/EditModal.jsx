@@ -84,7 +84,6 @@ const EditModal = ({ editForm, setEditForm, onSubmit, onClose }) => (
                 <option value="Center">Center Area</option>
                 <option value="Bar">Bar Counter</option>
                 <option value="Private">Private Dining</option>
-                <option value="Outdoor">Outdoor</option>
                 <option value="General">General</option>
               </select>
               <ChevronDown 

@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Lock, MapPin } from 'lucide-react';
 import tableyeLogo from '../assets/tableye-logo.png';
 import FloorPlanTable, { MergedFloorPlanTable } from '../components/table/FloorPlanTable';
 import { STATUS_META } from '../constants/tableStatus';
+import { DEFAULT_CMS_CONFIG } from '../constants/cmsConfig';
 
 // Floor access point labels shown on the map header.
 const FLOOR_ACCESS = {
@@ -15,12 +16,15 @@ const FLOOR_ACCESS = {
  *
  * Customer-facing entrance display showing a realistic top-down floor plan
  * with color-coded table and chair icons per status.
- * Auto-rotates between floors every 5 seconds if there is more than one.
+ * If there is more than one floor, users can switch floors manually by
+ * clicking the floor dots. It no longer auto-rotates on its own.
  *
  * @param {Array}    tables       - Current table state array.
  * @param {Function} onViewChange - Callback to navigate to the admin view.
+ * @param {object}   cmsConfig    - Branding/appearance/visibility config from the admin CMS editor.
  */
-const PublicDashboard = ({ tables, onViewChange }) => {
+const PublicDashboard = ({ tables, onViewChange, cmsConfig }) => {
+  const cms = { ...DEFAULT_CMS_CONFIG, ...cmsConfig };
   const [activeFloorIndex, setActiveFloorIndex] = useState(0);
 
   // Build per-floor slide data, filtering out empty floors.
@@ -34,24 +38,32 @@ const PublicDashboard = ({ tables, onViewChange }) => {
   const floorVacant = activeFloor?.tables.filter(t => t.status === 'vacant').length || 0;
   const floorFull = activeFloor?.tables.filter(t => t.status === 'full').length || 0;
 
-  // Auto-rotate floors.
-  useEffect(() => {
-    if (floorSlides.length <= 1) return undefined;
-    const timer = window.setInterval(
-      () => setActiveFloorIndex(i => (i + 1) % floorSlides.length),
-      5000,
-    );
-    return () => window.clearInterval(timer);
-  }, [floorSlides.length]);
-
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-slate-950 text-white">
+    <div
+      className="flex h-screen flex-col overflow-hidden"
+      style={{
+        backgroundColor: cms.backgroundColor,
+        color: cms.textColor,
+        ...(cms.backgroundImage && {
+          backgroundImage: `url(${cms.backgroundImage})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        }),
+      }}
+    >
       {/* ── Header ─────────────────────────────────────────────── */}
-      <header className="grid grid-cols-[auto_1fr_auto] items-center border-b border-slate-800 bg-slate-950 px-4 py-3">
-        <img src={tableyeLogo} alt="Tableye Logo" className="h-12 w-12 rounded-full object-cover ring-2 ring-slate-700" />
+      <header
+        className="grid grid-cols-[auto_1fr_auto] items-center border-b border-slate-800 px-4 py-3"
+        style={{ backgroundColor: cms.sidebarColor }}
+      >
+        <img
+          src={cms.logo || tableyeLogo}
+          alt={`${cms.brandName} Logo`}
+          className="h-12 w-12 rounded-full object-cover ring-2 ring-slate-700"
+        />
         <div className="text-center">
-          <h2 className="mt-1 text-3xl font-bold tracking-[0.35em] text-white">TABLEYE</h2>
-          <p className="text-xs font-semibold uppercase tracking-[0.45em] text-slate-400">Live Occupancy Dashboard</p>
+          <h2 className="mt-1 text-3xl font-bold tracking-[0.35em]" style={{ color: cms.textColor }}>{cms.brandName}</h2>
+          <p className="text-xs font-semibold uppercase tracking-[0.45em] text-slate-400">{cms.welcomeMessage}</p>
         </div>
         <button
           onClick={() => onViewChange('dashboard')}
@@ -62,49 +74,63 @@ const PublicDashboard = ({ tables, onViewChange }) => {
         </button>
       </header>
 
+      {/* Live camera feed panel — visibility controlled by the CMS "Show Live Camera Feed publicly" toggle. */}
+      {cms.showLiveVideoPublicly && (
+        <div className="mx-4 mt-4 flex h-40 items-center justify-center rounded-2xl border border-slate-700 bg-slate-900 text-slate-500">
+          <span className="text-xs font-semibold uppercase tracking-[0.2em]">Live Camera Feed (not yet connected)</span>
+        </div>
+      )}
+
       {/* ── Floor plan ─────────────────────────────────────────── */}
       <main className="flex min-h-0 flex-1 flex-col items-center p-4">
         {activeFloor && (
           <section className="flex min-h-0 w-full max-w-7xl flex-1 flex-col rounded-3xl border border-slate-700 bg-slate-900 p-5 shadow-2xl">
-            {/* Stats row */}
+            {/* Stats row — visibility controlled by the CMS "Show Occupancy Statistics" toggle. */}
             <div className="grid gap-3 lg:grid-cols-[1fr_auto]">
-              <div className="grid gap-3 md:grid-cols-3">
-                <StatTile label="Area" value={activeFloor.label} colorClass="border-slate-700 bg-slate-800/80" textClass="text-white" />
-                <StatTile label="Available" value={`${floorVacant} / ${activeFloor.tables.length}`} colorClass="border-green-500/30 bg-green-500/10" textClass="text-green-400" />
-                <StatTile label="Full" value={`${floorFull} Table/s`} colorClass="border-red-500/30 bg-red-500/10" textClass="text-white" />
-              </div>
+              {cms.showOccupancyStats && (
+                <div className="grid gap-3 md:grid-cols-3">
+                  <StatTile label="Area" value={activeFloor.label} colorClass="border-slate-700 bg-slate-800/80" textClass="text-white" />
+                  <StatTile label="Available" value={`${floorVacant} / ${activeFloor.tables.length}`} colorClass="border-green-500/30 bg-green-500/10" textClass="text-green-400" />
+                  <StatTile label="Full" value={`${floorFull} Table/s`} colorClass="border-red-500/30 bg-red-500/10" textClass="text-white" />
+                </div>
+              )}
               {floorSlides.length > 1 && (
                 <div className="flex items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-800/80 px-4">
-                  {floorSlides.map((_, index) => (
-                    <span
+                  {/* Floor dots are now click-to-switch since auto-rotate was removed. */}
+                  {floorSlides.map((floor, index) => (
+                    <button
                       key={index}
-                      className={`h-3 w-3 rounded-full ${index === activeFloorIndex ? 'bg-blue-400' : 'bg-slate-700'}`}
+                      onClick={() => setActiveFloorIndex(index)}
+                      title={floor.label}
+                      className={`h-3 w-3 rounded-full transition-colors ${index === activeFloorIndex ? 'bg-blue-400' : 'bg-slate-700 hover:bg-slate-600'}`}
                     />
                   ))}
                 </div>
               )}
             </div>
 
-            {/* Canvas */}
-            <div className="mt-3 flex min-h-0 flex-1 flex-col rounded-3xl border border-slate-800 bg-slate-950/70 p-4">
-              <div className="mb-3 flex items-center gap-3">
-                <MapPin size={18} className="text-blue-300" />
-                <h3 className="text-lg font-black uppercase tracking-[0.22em] text-slate-200">{activeFloor.label} Facility Map</h3>
-                <div className="h-px flex-1 bg-slate-800" />
-                <p className="text-xs uppercase tracking-[0.18em] text-slate-500">{activeAccess.access}</p>
-              </div>
-
-              <div className="relative min-h-0 flex-1 overflow-auto rounded-2xl border border-slate-800 bg-[linear-gradient(90deg,rgba(51,65,85,0.18)_1px,transparent_1px),linear-gradient(rgba(51,65,85,0.18)_1px,transparent_1px)] bg-[size:42px_42px]">
-                {/* Entrance strip */}
-                <div className="absolute top-2 left-0 right-0 mx-4 flex h-7 items-center justify-center rounded-full bg-slate-800 text-[10px] font-bold uppercase tracking-[0.18em] text-blue-200 z-10">
-                  <span className="absolute left-4 text-slate-300">{activeAccess.access}</span>
-                  {activeAccess.entrance}
+            {/* Canvas — visibility controlled by the CMS "Show Detailed Table List" toggle. */}
+            {cms.showTableList && (
+              <div className="mt-3 flex min-h-0 flex-1 flex-col rounded-3xl border border-slate-800 bg-slate-950/70 p-4">
+                <div className="mb-3 flex items-center gap-3">
+                  <MapPin size={18} className="text-blue-300" />
+                  <h3 className="text-lg font-black uppercase tracking-[0.22em] text-slate-200">{activeFloor.label} Facility Map</h3>
+                  <div className="h-px flex-1 bg-slate-800" />
+                  <p className="text-xs uppercase tracking-[0.18em] text-slate-500">{activeAccess.access}</p>
                 </div>
 
-                {/* Table tiles */}
-                <FloorPlanCanvas tables={activeFloor.tables} />
+                <div className="relative min-h-0 flex-1 overflow-auto rounded-2xl border border-slate-800 bg-[linear-gradient(90deg,rgba(51,65,85,0.18)_1px,transparent_1px),linear-gradient(rgba(51,65,85,0.18)_1px,transparent_1px)] bg-[size:42px_42px]">
+                  {/* Entrance strip */}
+                  <div className="absolute top-2 left-0 right-0 mx-4 flex h-7 items-center justify-center rounded-full bg-slate-800 text-[10px] font-bold uppercase tracking-[0.18em] text-blue-200 z-10">
+                    <span className="absolute left-4 text-slate-300">{activeAccess.access}</span>
+                    {activeAccess.entrance}
+                  </div>
+
+                  {/* Table tiles */}
+                  <FloorPlanCanvas tables={activeFloor.tables} />
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Legend */}
             <div className="mt-3 flex flex-wrap justify-center gap-3 rounded-2xl bg-slate-800 px-4 py-2 text-sm font-medium text-slate-300">
@@ -119,7 +145,9 @@ const PublicDashboard = ({ tables, onViewChange }) => {
         )}
       </main>
 
-
+      <footer className="py-3 text-center text-[11px] font-medium tracking-wide text-slate-500">
+        {cms.footerText}
+      </footer>
     </div>
   );
 };

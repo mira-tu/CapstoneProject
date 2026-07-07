@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import tableyeLogo from '../assets/tableye-logo.png';
 import Footer from '../components/Footer';
+import { DEFAULT_CMS_CONFIG } from '../constants/cmsConfig';
 
 /**
  * NavItem
@@ -37,9 +38,12 @@ const NavItem = ({ active, icon, label, onClick, collapsed = false }) => (
  * @param {ReactNode} children     - The active page component.
  * @param {string}    currentView  - Active view key (used to highlight nav item).
  * @param {Function}  onViewChange - Callback to change the active view.
+ * @param {object}    cmsConfig    - Brand identity (name, logo, footer text) from the CMS editor.
+ *                                   Sidebar/layout colors intentionally stay fixed — only identity syncs here.
  */
-const AdminWrapper = ({ children, currentView, onViewChange }) => {
+const AdminWrapper = ({ children, currentView, onViewChange, cmsConfig }) => {
   const [isOpen, setIsOpen] = useState(true);
+  const cms = { ...DEFAULT_CMS_CONFIG, ...cmsConfig };
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -53,8 +57,8 @@ const AdminWrapper = ({ children, currentView, onViewChange }) => {
             <div className="flex flex-col">
               <div className="flex items-center justify-between">
                 <h1 className="flex items-center gap-2 text-2xl font-bold tracking-wider text-white">
-                  <img src={tableyeLogo} alt="Tableye Logo" className="h-8 w-8 rounded-full object-cover" />
-                  TABLEYE
+                  <img src={cms.logo || tableyeLogo} alt={`${cms.brandName} Logo`} className="h-8 w-8 rounded-full object-cover" />
+                  {cms.brandName}
                 </h1>
                 <button
                   onClick={() => setIsOpen(!isOpen)}
@@ -96,7 +100,7 @@ const AdminWrapper = ({ children, currentView, onViewChange }) => {
             className={`w-full flex items-center rounded-lg transition-colors text-blue-400 hover:bg-slate-800
               ${isOpen ? 'gap-3 px-4 py-2 text-sm' : 'justify-center p-3'}`}
           >
-            <img src={tableyeLogo} alt="Tableye Logo" className="h-5 w-5 rounded-full object-cover" />
+            <img src={cms.logo || tableyeLogo} alt={`${cms.brandName} Logo`} className="h-5 w-5 rounded-full object-cover" />
             {isOpen && 'Public Lobby View'}
           </button>
           <button
@@ -116,7 +120,7 @@ const AdminWrapper = ({ children, currentView, onViewChange }) => {
         <div className="flex-1">
           {children}
         </div>
-        <Footer />
+        <Footer text={cms.footerText} />
       </main>
     </div>
   );
