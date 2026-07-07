@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Lock, MapPin } from 'lucide-react';
 import tableyeLogo from '../assets/tableye-logo.png';
 import FloorPlanTable, { MergedFloorPlanTable } from '../components/table/FloorPlanTable';
+import AnnotatedVideoFeed from '../components/detection/AnnotatedVideoFeed';
 import { STATUS_META } from '../constants/tableStatus';
 import { DEFAULT_CMS_CONFIG } from '../constants/cmsConfig';
 
@@ -26,19 +27,25 @@ const FLOOR_ACCESS = {
 const PublicDashboard = ({ tables, onViewChange, cmsConfig }) => {
   const cms = { ...DEFAULT_CMS_CONFIG, ...cmsConfig };
   const [activeFloorIndex, setActiveFloorIndex] = useState(0);
-  const [liveVideoUrl, setLiveVideoUrl] = useState(null);
+  const [detectionRunning, setDetectionRunning] = useState(false);
 
-  // Pull the currently-uploaded video URL so the live feed panel can play
-  // the same footage the detection engine is analyzing, not a placeholder.
+  // Check if detection is running
   useEffect(() => {
-    if (!cms.showLiveVideoPublicly) return;
     let cancelled = false;
-    fetch('/api/detection/settings')
-      .then(res => res.json())
-      .then(data => { if (!cancelled) setLiveVideoUrl(data.videoUrl || null); })
-      .catch(() => { if (!cancelled) setLiveVideoUrl(null); });
-    return () => { cancelled = true; };
-  }, [cms.showLiveVideoPublicly]);
+    const checkDetection = async () => {
+      try {
+        const res = await fetch('/api/detection/status');
+        const data = await res.json();
+        if (!cancelled) setDetectionRunning(data.running || false);
+      } catch {
+        if (!cancelled) setDetectionRunning(false);
+      }
+    };
+    
+    checkDetection();
+    const interval = setInterval(checkDetection, 2000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, []);
 
   // Build per-floor slide data, filtering out empty floors.
   const floorSlides = [
@@ -87,35 +94,11 @@ const PublicDashboard = ({ tables, onViewChange, cmsConfig }) => {
         </button>
       </header>
 
-      {/* Live camera feed panel — visibility controlled by the CMS "Show Live Camera Feed publicly" toggle. */}
+      {/* Live detection feed with annotated boxes — shown if enabled in CMS */}
       {cms.showLiveVideoPublicly && (
         <div className="mx-4 mt-4 overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-lg">
-          <div className="relative h-64 w-full">
-            {liveVideoUrl ? (
-              <>
-                <video
-                  key={liveVideoUrl}
-                  src={liveVideoUrl}
-                  className="h-full w-full object-cover"
-                  muted
-                  loop
-                  autoPlay
-                  playsInline
-                  controls
-                />
-                <div className="absolute top-2 right-2 flex items-center gap-2 rounded-full bg-red-600/90 px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] text-white shadow-lg">
-                  <span className="inline-block h-2 w-2 rounded-full bg-white animate-pulse" />
-                  Live
-                </div>
-              </>
-            ) : (
-              <div className="flex h-full items-center justify-center bg-slate-950 text-slate-500">
-                <div className="flex flex-col items-center gap-2">
-                  <div className="h-12 w-12 rounded-full border-2 border-slate-600 border-t-blue-400 animate-spin" />
-                  <span className="text-xs font-semibold uppercase tracking-[0.2em]">Loading camera feed...</span>
-                </div>
-              </div>
-            )}
+          <div className="relative h-72 w-full">
+            <AnnotatedVideoFeed isRunning={detectionRunning} />
           </div>
         </div>
       )}

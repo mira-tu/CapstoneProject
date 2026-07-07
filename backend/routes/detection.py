@@ -211,6 +211,9 @@ def get_annotated_frame():
 
     try:
         cap = cv2.VideoCapture(detection_service.video_path)
+        if not cap.isOpened():
+            return jsonify({"error": "Could not open video file."}), 500
+            
         ok, frame = cap.read()
         cap.release()
 
@@ -218,25 +221,29 @@ def get_annotated_frame():
             return jsonify({"error": "Could not read a frame from the video."}), 500
 
         # Get latest detection results
-        detections = detection_service.detector.detect_all(frame) if detection_service.detector else {}
-        status = detection_service.get_status()
+        # Only draw person/table boxes if detection is running
+        if detection_service.is_running() and detection_service.detector:
+            try:
+                detections = detection_service.detector.detect_all(frame)
+                
+                # Draw person detection boxes (green)
+                for person in detections.get("persons", []):
+                    x1, y1, x2, y2 = int(person["x1"]), int(person["y1"]), int(person["x2"]), int(person["y2"])
+                    conf = person["conf"]
+                    cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)  # Green
+                    cv2.putText(frame, f"Person {conf:.2f}", (x1, max(0, y1 - 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
 
-        # Draw detection boxes
-        if detections:
-            # Draw person detection boxes (green)
-            for person in detections.get("persons", []):
-                x1, y1, x2, y2 = int(person["x1"]), int(person["y1"]), int(person["x2"]), int(person["y2"])
-                conf = person["conf"]
-                cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)  # Green
-                cv2.putText(frame, f"Person {conf:.2f}", (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
-
-            # Draw dining table boxes (blue)
-            for table in detections.get("tables", []):
-                x1, y1, x2, y2 = int(table["x1"]), int(table["y1"]), int(table["x2"]), int(table["y2"])
-                cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 0), 2)  # Blue
-                cv2.putText(frame, "Table", (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
+                # Draw dining table boxes (blue)
+                for table in detections.get("tables", []):
+                    x1, y1, x2, y2 = int(table["x1"]), int(table["y1"]), int(table["x2"]), int(table["y2"])
+                    cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 0), 2)  # Blue
+                    cv2.putText(frame, "Table", (x1, max(0, y1 - 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
+            except Exception as e:
+                # If detection fails, still show the video with just the calibration
+                pass
 
         # Draw calibrated table regions (red polygons) with status
+        status = detection_service.get_status()
         for table_info in status:
             table_id = table_info["tableId"]
             person_count = table_info["personCount"]
@@ -245,30 +252,29 @@ def get_annotated_frame():
 
             # Get the region polygon
             region = detection_service.region_mapper.regions.get(table_id)
-            if region and len(region) >= 2:
+            if region and len(region) >= 3:
                 # Draw region bounds (red)
                 points = [(int(p["x"]), int(p["y"])) for p in region]
-                if len(points) >= 3:
-                    pts = [points]
-                    cv2.polylines(frame, pts, True, (0, 0, 255), 2)  # Red
+                pts = [points]
+                cv2.polylines(frame, pts, True, (0, 0, 255), 2)  # Red
 
-                    # Draw status label
-                    min_y = min(p[1] for p in points)
-                    min_x = min(p[0] for p in points)
-                    
-                    # Color based on status
-                    status_colors = {
-                        "vacant": (0, 255, 0),       # Green
-                        "partial": (0, 255, 255),   # Yellow
-                        "full": (0, 0, 255),         # Red
-                        "merged": (255, 0, 0),       # Cyan
-                        "reserved": (255, 255, 0),   # Blue
-                        "maintenance": (128, 128, 128),  # Gray
-                    }
-                    color = status_colors.get(table_status, (255, 255, 255))
+                # Draw status label
+                min_y = min(p[1] for p in points)
+                min_x = min(p[0] for p in points)
+                
+                # Color based on status
+                status_colors = {
+                    "vacant": (0, 255, 0),       # Green
+                    "partial": (0, 255, 255),   # Yellow
+                    "full": (0, 0, 255),         # Red
+                    "merged": (255, 0, 0),       # Cyan
+                    "reserved": (255, 255, 0),   # Blue
+                    "maintenance": (128, 128, 128),  # Gray
+                }
+                color = status_colors.get(table_status, (255, 255, 255))
 
-                    label = f"{table_id}: {person_count}/{capacity} ({table_status})"
-                    cv2.putText(frame, label, (min_x, min_y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
+                label = f"{table_id}: {person_count}/{capacity} ({table_status})"
+                cv2.putText(frame, label, (min_x, max(0, min_y - 10)), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
 
         ok, buffer = cv2.imencode(".jpg", frame)
         if not ok:
@@ -277,6 +283,8 @@ def get_annotated_frame():
         return Response(buffer.tobytes(), mimetype="image/jpeg")
 
     except Exception as exc:
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": f"Error generating annotated frame: {str(exc)}"}), 500
 
 
