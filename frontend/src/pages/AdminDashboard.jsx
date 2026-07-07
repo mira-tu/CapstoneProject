@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { LayoutDashboard, CheckCircle2, Users, Grid2x2, AlertTriangle, CombineIcon } from 'lucide-react';
 import TableCard from '../components/table/TableCard';
+import AnnotatedVideoFeed from '../components/detection/AnnotatedVideoFeed';
 import AdminTopbar from '../layouts/AdminTopbar';
 
 /**
@@ -30,8 +31,8 @@ const KpiCard = ({ title, value, icon, color }) => {
 /**
  * AdminDashboard
  *
- * Live occupancy dashboard with integrated video feed.
- * Left side: Live camera feed showing real-time detection input
+ * Live occupancy dashboard with integrated annotated video feed.
+ * Left side: Live camera feed with detection boxes, person counts, table status
  * Right side: KPI metrics and occupancy summary
  * Bottom: Table grid showing all current table statuses
  *
@@ -68,7 +69,7 @@ const AdminDashboard = ({ tables, simEnabled = false, onToggleSim, detectionStat
     <div className="flex flex-col h-full p-8 gap-6 bg-slate-50">
       <AdminTopbar
         title="Live Occupancy Dashboard"
-        subtitle="Real-time monitoring with live camera feed and YOLOv8 detection."
+        subtitle="Real-time monitoring with live camera detection and YOLOv8 analysis."
         action={
           <button
             onClick={onToggleSim}
@@ -95,13 +96,13 @@ const AdminDashboard = ({ tables, simEnabled = false, onToggleSim, detectionStat
         </div>
       )}
 
-      {/* Main content: Video feed + KPIs side by side */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1">
-        {/* LEFT: Live Video Feed */}
-        <div className="lg:col-span-2">
+      {/* Main content: Annotated video feed + KPIs side by side */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0">
+        {/* LEFT: Annotated Detection Feed */}
+        <div className="lg:col-span-2 min-h-0">
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden h-full flex flex-col">
             <div className="bg-slate-700 px-6 py-4 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-white">Live Camera Feed</h3>
+              <h3 className="text-lg font-semibold text-white">Live Detection Feed</h3>
               {engineRunning && (
                 <div className="flex items-center gap-2">
                   <span className="inline-block h-2 w-2 rounded-full bg-red-500 animate-pulse" />
@@ -109,29 +110,8 @@ const AdminDashboard = ({ tables, simEnabled = false, onToggleSim, detectionStat
                 </div>
               )}
             </div>
-            <div className="flex-1 min-h-0 bg-slate-900 flex items-center justify-center relative">
-              {liveVideoUrl ? (
-                <>
-                  <video
-                    key={liveVideoUrl}
-                    src={liveVideoUrl}
-                    className="w-full h-full object-cover"
-                    muted
-                    loop
-                    autoPlay
-                    playsInline
-                  />
-                  <div className="absolute bottom-4 right-4 bg-slate-800/80 backdrop-blur px-3 py-2 rounded-lg text-xs font-semibold text-slate-100 border border-slate-600">
-                    {engineRunning ? 'Detection: ON' : 'Detection: OFF'}
-                  </div>
-                </>
-              ) : (
-                <div className="flex flex-col items-center gap-3 text-slate-500">
-                  <div className="h-16 w-16 rounded-full border-2 border-slate-600 border-t-blue-400 animate-spin" />
-                  <span className="text-sm font-medium">Loading camera feed...</span>
-                  <span className="text-xs text-slate-600">Upload a video in Settings to begin</span>
-                </div>
-              )}
+            <div className="flex-1 min-h-0 bg-slate-900 flex items-center justify-center relative overflow-hidden">
+              <AnnotatedVideoFeed isRunning={engineRunning} />
             </div>
           </div>
         </div>

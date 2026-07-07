@@ -192,6 +192,94 @@ def get_settings():
     return jsonify(_settings), 200
 
 
+@detection_bp.get("/frame/annotated")
+def get_annotated_frame():
+    """
+    Return a single frame from the video WITH detection annotations overlaid:
+    - Green boxes around detected persons
+    - Blue boxes around detected tables
+    - Red region polygons for table calibration areas
+    - Table status labels (available/occupied/merged/reserved/maintenance)
+    
+    This is used for real-time visualization of what the detection engine sees.
+    """
+    import cv2
+    from flask import Response
+
+    if not detection_service.has_video():
+        return jsonify({"error": "No video uploaded yet."}), 400
+
+    try:
+        cap = cv2.VideoCapture(detection_service.video_path)
+        ok, frame = cap.read()
+        cap.release()
+
+        if not ok:
+            return jsonify({"error": "Could not read a frame from the video."}), 500
+
+        # Get latest detection results
+        detections = detection_service.detector.detect_all(frame) if detection_service.detector else {}
+        status = detection_service.get_status()
+
+        # Draw detection boxes
+        if detections:
+            # Draw person detection boxes (green)
+            for person in detections.get("persons", []):
+                x1, y1, x2, y2 = int(person["x1"]), int(person["y1"]), int(person["x2"]), int(person["y2"])
+                conf = person["conf"]
+                cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)  # Green
+                cv2.putText(frame, f"Person {conf:.2f}", (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+
+            # Draw dining table boxes (blue)
+            for table in detections.get("tables", []):
+                x1, y1, x2, y2 = int(table["x1"]), int(table["y1"]), int(table["x2"]), int(table["y2"])
+                cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 0), 2)  # Blue
+                cv2.putText(frame, "Table", (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
+
+        # Draw calibrated table regions (red polygons) with status
+        for table_info in status:
+            table_id = table_info["tableId"]
+            person_count = table_info["personCount"]
+            capacity = table_info["capacity"]
+            table_status = table_info["status"]
+
+            # Get the region polygon
+            region = detection_service.region_mapper.regions.get(table_id)
+            if region and len(region) >= 2:
+                # Draw region bounds (red)
+                points = [(int(p["x"]), int(p["y"])) for p in region]
+                if len(points) >= 3:
+                    pts = [points]
+                    cv2.polylines(frame, pts, True, (0, 0, 255), 2)  # Red
+
+                    # Draw status label
+                    min_y = min(p[1] for p in points)
+                    min_x = min(p[0] for p in points)
+                    
+                    # Color based on status
+                    status_colors = {
+                        "vacant": (0, 255, 0),       # Green
+                        "partial": (0, 255, 255),   # Yellow
+                        "full": (0, 0, 255),         # Red
+                        "merged": (255, 0, 0),       # Cyan
+                        "reserved": (255, 255, 0),   # Blue
+                        "maintenance": (128, 128, 128),  # Gray
+                    }
+                    color = status_colors.get(table_status, (255, 255, 255))
+
+                    label = f"{table_id}: {person_count}/{capacity} ({table_status})"
+                    cv2.putText(frame, label, (min_x, min_y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
+
+        ok, buffer = cv2.imencode(".jpg", frame)
+        if not ok:
+            return jsonify({"error": "Could not encode annotated frame as JPEG."}), 500
+
+        return Response(buffer.tobytes(), mimetype="image/jpeg")
+
+    except Exception as exc:
+        return jsonify({"error": f"Error generating annotated frame: {str(exc)}"}), 500
+
+
 @detection_bp.post("/settings")
 def save_settings():
     """Save updated camera / detection settings."""
