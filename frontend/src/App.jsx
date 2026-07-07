@@ -19,9 +19,8 @@ import TableManagement   from './pages/TableManagement';
 import PublicDashboard from './pages/PublicDashboard';
 
 // Custom hooks — each responsible for one concern
-import { useOccupancyLog }    from './hooks/useOccupancyLog';
-import { useTableSimulation } from './hooks/useTableSimulation';
-import { useMergeSimulation } from './hooks/useMergeSimulation';
+import { useOccupancyLog }   from './hooks/useOccupancyLog';
+import { useDetectionFeed }  from './hooks/useDetectionFeed';
 
 // Shared utilities
 import { computeStatus } from './constants/tableStatus';
@@ -60,8 +59,7 @@ export default function App() {
 
   // ── Hooks ─────────────────────────────────────────────────────────────────
   const { logs, addLog }   = useOccupancyLog();
-  useTableSimulation(simEnabled, setTables, addLog);
-  useMergeSimulation(simEnabled, setTables, addLog);
+  const detectionStatus    = useDetectionFeed(simEnabled, setTables, addLog);
 
   // ── Manual override handlers ──────────────────────────────────────────────
   const handleStatusOverride = (id, status) => {
@@ -94,7 +92,7 @@ export default function App() {
     switch (currentView) {
       case 'login':            return <AdminLogin    onViewChange={setCurrentView} />;
       case 'forgot-password':  return <ForgotPassword onViewChange={setCurrentView} />;
-      case 'dashboard':        return <AdminDashboard  tables={tables} simEnabled={simEnabled} onToggleSim={() => setSimEnabled(s => !s)} />;
+      case 'dashboard':        return <AdminDashboard  tables={tables} simEnabled={simEnabled} onToggleSim={() => setSimEnabled(s => !s)} detectionStatus={detectionStatus} />;
       case 'logs':
       case 'analytics':        return <Analytics       logs={logs} />;
       case 'settings':         return <AdminSettings   simEnabled={simEnabled} onToggleSim={() => setSimEnabled(s => !s)} cmsConfig={cmsConfig} onCmsSave={setCmsConfig} />;

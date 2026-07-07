@@ -1,5 +1,76 @@
 {
   "_comment": "Table region polygons saved by the Camera Calibration screen.",
-  "_format":  "Each key is a table ID. Value is an array of 4 [x, y] pixel coordinate pairs.",
-  "_example": { "T01": [[100, 100], [200, 100], [200, 200], [100, 200]] }
+  "_format": "Each key is a table ID. Value is an array of 4 [x, y] pixel coordinate pairs.",
+  "T01": [
+    [
+      2301,
+      1259
+    ],
+    [
+      2461,
+      1259
+    ],
+    [
+      2461,
+      1419
+    ],
+    [
+      2301,
+      1419
+    ]
+  ],
+  "T02": [
+    [
+      2070,
+      1648
+    ],
+    [
+      2230,
+      1648
+    ],
+    [
+      2230,
+      1808
+    ],
+    [
+      2070,
+      1808
+    ]
+  ],
+  "T03": [
+    [
+      726,
+      1346
+    ],
+    [
+      886,
+      1346
+    ],
+    [
+      886,
+      1506
+    ],
+    [
+      726,
+      1506
+    ]
+  ],
+  "T04": [
+    [
+      1226,
+      1216
+    ],
+    [
+      1386,
+      1216
+    ],
+    [
+      1386,
+      1376
+    ],
+    [
+      1226,
+      1376
+    ]
+  ]
 }

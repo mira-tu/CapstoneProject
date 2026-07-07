@@ -38,6 +38,14 @@ backend/**/__pycache__/
 *.pyc
 *.pyo
 
+# YOLOv8 model weights (auto-downloaded on first run, too large for git)
+backend/*.pt
+backend/**/*.pt
+
+# Uploaded sample videos (large binaries, not source)
+backend/data/uploads/*
+!backend/data/uploads/.gitkeep
+
 # Python virtual environments
 venv/
 .venv/

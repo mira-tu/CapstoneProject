@@ -33,11 +33,14 @@ const KpiCard = ({ title, value, icon, color }) => {
  * Live occupancy overview page.
  * Shows KPI summary cards and a grid of TableCards for the floor plan.
  *
- * @param {Array}    tables       - Current table state array.
- * @param {boolean}  simEnabled   - Whether the simulation / detection feed is active.
- * @param {Function} onToggleSim  - Callback to pause / resume the simulation.
+ * @param {Array}    tables          - Current table state array.
+ * @param {boolean}  simEnabled      - Whether the detection feed polling is active.
+ * @param {Function} onToggleSim     - Callback to pause / resume polling.
+ * @param {object}   detectionStatus - { running, error } from the real backend detection engine.
  */
-const AdminDashboard = ({ tables, simEnabled = false, onToggleSim }) => {
+const AdminDashboard = ({ tables, simEnabled = false, onToggleSim, detectionStatus }) => {
+  const engineRunning = simEnabled && detectionStatus?.running;
+  const engineError = detectionStatus?.error;
   const vacant = tables.filter(t => t.status === 'vacant').length;
   const partial = tables.filter(t => t.status === 'partial').length;
   const full = tables.filter(t => t.status === 'full').length;
@@ -56,21 +59,27 @@ const AdminDashboard = ({ tables, simEnabled = false, onToggleSim }) => {
           <button
             onClick={onToggleSim}
             className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium border shadow-sm transition
-              ${simEnabled
+              ${engineRunning
                 ? 'bg-green-100 text-green-700 border-green-200 hover:bg-green-200'
                 : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'}`}
-            title={simEnabled ? 'Pause simulated detection feed' : 'Start simulated detection feed'}
+            title={simEnabled ? 'Pause detection feed polling' : 'Start detection feed polling'}
           >
             <span className="relative flex h-3 w-3">
-              {simEnabled && (
+              {engineRunning && (
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75" />
               )}
-              <span className={`relative inline-flex rounded-full h-3 w-3 ${simEnabled ? 'bg-green-600' : 'bg-slate-400'}`} />
+              <span className={`relative inline-flex rounded-full h-3 w-3 ${engineRunning ? 'bg-green-600' : 'bg-slate-400'}`} />
             </span>
-            {simEnabled ? 'YOLOv8 Inference Active (Simulated)' : 'Detection Paused'}
+            {engineRunning ? 'YOLOv8 Detection Active' : simEnabled ? 'Waiting for Detection Engine' : 'Detection Paused'}
           </button>
         }
       />
+
+      {engineError && (
+        <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          Detection engine error: {engineError}
+        </div>
+      )}
 
       {/* KPI row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6 gap-4 mb-8">

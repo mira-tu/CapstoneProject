@@ -11,9 +11,8 @@ Detection logic lives in the detection/ folder.
 from flask import Flask
 from flask_cors import CORS
 
-# Route blueprints (uncomment as you build each module)
-# from routes.tables    import tables_bp
-# from routes.detection import detection_bp
+from routes.tables import tables_bp
+from routes.detection import detection_bp
 
 
 def create_app():
@@ -23,8 +22,8 @@ def create_app():
     CORS(app, origins=["http://localhost:5173"])
 
     # Register blueprints
-    # app.register_blueprint(tables_bp,    url_prefix="/api/tables")
-    # app.register_blueprint(detection_bp, url_prefix="/api/detection")
+    app.register_blueprint(tables_bp,    url_prefix="/api/tables")
+    app.register_blueprint(detection_bp, url_prefix="/api/detection")
 
     @app.get("/api/health")
     def health():

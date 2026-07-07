@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Camera, MonitorPlay, Sliders, Play, Pause, Save, CheckCircle2, LayoutTemplate, Edit, Upload, Trash2 } from 'lucide-react';
+import { Camera, MonitorPlay, Sliders, Play, Pause, Save, LayoutTemplate, Edit, Upload, Trash2, Video } from 'lucide-react';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -7,22 +7,32 @@ import 'react-toastify/dist/ReactToastify.css';
  * AdminSettings
  *
  * Camera feed and detection model configuration page.
- * All inputs are controlled and "saved" locally during the prototype stage.
  *
- * When the Flask backend is ready, replace the local setSaved() in handleSave()
- * with a call to saveDetectionSettings() from api/detectionApi.js.
+ * No live CCTV is connected yet, so instead of an RTSP stream this page
+ * lets the admin upload a sample video (e.g. an overhead restaurant clip).
+ * The backend loops that video and runs real YOLOv8 detection on it, which
+ * is what the public dashboard's live feed and the admin dashboard's table
+ * statuses are driven by. The RTSP field stays as a placeholder for when a
+ * real camera is connected later.
  *
- * @param {boolean}  simEnabled  - Whether the simulation is active.
- * @param {Function} onToggleSim - Callback to pause / resume the simulation.
+ * @param {boolean}  simEnabled  - Whether detection feed polling is active.
+ * @param {Function} onToggleSim - Callback to pause / resume polling.
  * @param {object}   cmsConfig   - Currently-applied CMS config, owned by App.jsx.
  * @param {Function} onCmsSave   - Callback to apply a new CMS config to the public dashboard.
  */
 const AdminSettings = ({ simEnabled = false, onToggleSim, cmsConfig, onCmsSave }) => {
   const [settings, setSettings] = useState({
-    rtspUrl: 'rtsp://192.168.1.100:554/stream1',
+    rtspUrl: '',
     fps: '15',
     confidence: 75,
   });
+
+  // ==================== VIDEO SOURCE (real detection input) ====================
+  const [videoUrl, setVideoUrl] = useState(null);
+  const [videoFileName, setVideoFileName] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [engineRunning, setEngineRunning] = useState(false);
+  const [engineBusy, setEngineBusy] = useState(false);
 
   // ==================== CMS CONFIG (draft) ====================
   // Edits happen on a local draft so "Cancel" discards changes; "Apply Changes"
@@ -41,6 +51,64 @@ const AdminSettings = ({ simEnabled = false, onToggleSim, cmsConfig, onCmsSave }
 
   const updateField = (field, value) => {
     setSettings(prev => ({ ...prev, [field]: value }));
+  };
+
+  /**
+   * Upload the sample video to the Flask backend. This is the real video
+   * the detection engine will loop through with YOLOv8 — not a preview.
+   */
+  const handleVideoUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('video', file);
+
+      const res = await fetch('/api/detection/upload', { method: 'POST', body: formData });
+      if (!res.ok) throw new Error((await res.json()).error || 'Upload failed');
+      const data = await res.json();
+
+      setVideoUrl(data.videoUrl);
+      setVideoFileName(file.name);
+      toast.success('Video uploaded. You can now start detection.', {
+        position: 'top-center', autoClose: 3000, theme: 'dark',
+      });
+    } catch (err) {
+      toast.error(err.message, { position: 'top-center', autoClose: 4000, theme: 'dark' });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  /** Start or stop the backend's real YOLOv8 detection loop on the uploaded video. */
+  const toggleDetectionEngine = async () => {
+    if (!videoUrl && !engineRunning) {
+      toast.error('Upload a video first.', { position: 'top-center', autoClose: 3000, theme: 'dark' });
+      return;
+    }
+
+    setEngineBusy(true);
+    try {
+      const endpoint = engineRunning ? '/api/detection/stop' : '/api/detection/start';
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confidence: settings.confidence / 100 }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error || 'Request failed');
+
+      setEngineRunning(!engineRunning);
+      if (!simEnabled) onToggleSim?.(); // also start the frontend's status polling
+      toast.success(engineRunning ? 'Detection stopped' : 'Detection started', {
+        position: 'top-center', autoClose: 3000, theme: 'dark',
+      });
+    } catch (err) {
+      toast.error(err.message, { position: 'top-center', autoClose: 4000, theme: 'dark' });
+    } finally {
+      setEngineBusy(false);
+    }
   };
 
   const handleCmsChange = (e) => {
@@ -75,12 +143,22 @@ const AdminSettings = ({ simEnabled = false, onToggleSim, cmsConfig, onCmsSave }
     setCmsDraft(prev => ({ ...prev, backgroundImage: null }));
   };
 
-  const handleSave = () => {
-    toast.success('Configuration Saved', {
-      position: "top-center",
-      autoClose: 3000,
-      theme: "dark",
-    });
+  const handleSave = async () => {
+    try {
+      const res = await fetch('/api/detection/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          rtspUrl: settings.rtspUrl,
+          fps: Number(settings.fps),
+          confidence: settings.confidence / 100,
+        }),
+      });
+      if (!res.ok) throw new Error('Failed to save settings');
+      toast.success('Configuration Saved', { position: 'top-center', autoClose: 3000, theme: 'dark' });
+    } catch (err) {
+      toast.error(err.message, { position: 'top-center', autoClose: 4000, theme: 'dark' });
+    }
   };
 
   const handleCmsSave = () => {
@@ -104,40 +182,57 @@ const AdminSettings = ({ simEnabled = false, onToggleSim, cmsConfig, onCmsSave }
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8 border-b border-slate-100 pb-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">System Settings</h1>
-          <p className="text-slate-500 text-sm">Configure the camera feed and detection model used by TABLEYE.</p>
+          <p className="text-slate-500 text-sm">Configure the video source and detection model used by TABLEYE.</p>
         </div>
         <div>
           <button
-            onClick={onToggleSim}
-            className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium border shadow-sm transition
-              ${simEnabled
+            onClick={toggleDetectionEngine}
+            disabled={engineBusy}
+            className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium border shadow-sm transition disabled:opacity-50
+              ${engineRunning
                 ? 'bg-green-100 text-green-700 border-green-200 hover:bg-green-200'
                 : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'}`}
           >
-            {simEnabled ? <Pause size={16} /> : <Play size={16} />}
-            {simEnabled ? 'Pause Simulation' : 'Start Simulation'}
+            {engineRunning ? <Pause size={16} /> : <Play size={16} />}
+            {engineRunning ? 'Stop Detection' : 'Start Detection'}
           </button>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
 
-        {/* LEFT SIDE: Camera & Feed */}
+        {/* LEFT SIDE: Video Source & Feed */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 h-fit">
           <h3 className="text-lg font-semibold text-slate-700 mb-4 flex items-center gap-2">
-            <Camera size={20} /> Camera & Feed
+            <Camera size={20} /> Video Source
           </h3>
 
           <div className="w-full h-48 bg-slate-900 rounded-lg flex items-center justify-center text-slate-500 mb-4 relative overflow-hidden">
-            <MonitorPlay size={32} />
+            {videoUrl ? (
+              <video src={videoUrl} className="h-full w-full object-cover" muted loop autoPlay playsInline />
+            ) : (
+              <MonitorPlay size={32} />
+            )}
             <span className="absolute bottom-2 left-2 text-xs text-white bg-black/50 px-2 py-1 rounded">
-              RTSP Stream Preview
+              {videoUrl ? videoFileName : 'No video uploaded yet'}
             </span>
           </div>
 
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">RTSP Stream URL</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Sample Video (stand-in for live CCTV)</label>
+              <label className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-slate-300 bg-slate-50 px-3 py-3 text-sm font-medium text-slate-600 hover:border-blue-400 hover:bg-blue-50">
+                <Video size={16} />
+                {uploading ? 'Uploading…' : 'Upload Overhead Restaurant Video'}
+                <input type="file" accept="video/*" onChange={handleVideoUpload} disabled={uploading} className="hidden" />
+              </label>
+              <p className="mt-1 text-xs text-slate-400">
+                YOLOv8 runs on this video, looping it like a live feed. Swap this for a real
+                RTSP camera once one is available — no other change is needed.
+              </p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">RTSP Stream URL (future / optional)</label>
               <input
                 type="text"
                 value={settings.rtspUrl}
@@ -145,9 +240,6 @@ const AdminSettings = ({ simEnabled = false, onToggleSim, cmsConfig, onCmsSave }
                 placeholder="rtsp://<camera-ip>:554/stream1"
                 className="w-full px-3 py-2 border rounded-lg text-sm bg-slate-50 focus:border-blue-500 outline-none"
               />
-              <p className="mt-1 text-xs text-slate-400">
-                Address of the overhead CCTV camera. Used by the detection engine once connected.
-              </p>
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Target Processing FPS</label>

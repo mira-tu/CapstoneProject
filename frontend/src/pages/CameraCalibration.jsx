@@ -1,99 +1,129 @@
-import React, { useState, useRef, useCallback } from 'react';
-import { Camera, Save, Upload } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Save, Upload, RefreshCw } from 'lucide-react';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import AdminTopbar from '../layouts/AdminTopbar';
 
+// Half-width/height (in real video pixels) of the box drawn around each
+// clicked point. This is a simple stand-in for full polygon drawing —
+// good enough to give the detection engine a real region per table
+// without needing a 4-corner drag UI.
+const REGION_HALF_SIZE_PX = 80;
+
 /**
  * CameraCalibration
  *
- * Lets the admin upload a floor plan image, then place each table on it
- * by clicking or dragging a marker to the right spot. The marker's
- * (x%, y%) position is saved as that table's spot on the Public Lobby
- * floor plan. No polygon drawing is needed — just a single point per table.
+ * Lets the admin grab a frame from the uploaded detection video (see
+ * System Settings) and click on each table's spot in that frame. That
+ * click is saved as a real pixel-space region on the backend
+ * (POST /api/tables/:id/calibration), which is what YOLOv8 detection
+ * actually uses to know which pixels belong to which table.
  *
- * When the Flask backend is ready, replace the local setTables() call in
- * handleSaveCalibration() with saveCalibration() from api/tablesApi.js.
+ * IMPORTANT: this calibrates against the real video frame, not an
+ * unrelated floor plan diagram — the two are different pixel spaces, and
+ * detection would silently never match if calibrated against the wrong one.
  *
  * @param {Array}    tables             - Current table state array.
- * @param {Function} setTables          - React state setter for tables.
+ * @param {Function} setTables          - React state setter for tables (updates x/y for the Public Lobby map only).
  * @param {string}   selectedTableId    - Currently selected table ID.
  * @param {Function} setSelectedTableId - Setter for selectedTableId.
  */
 const CameraCalibration = ({ tables = [], setTables, selectedTableId, setSelectedTableId }) => {
-  const [floorPlan, setFloorPlan] = useState(null);
-  const [floorPlanFileName, setFloorPlanFileName] = useState('');
-  const [positions, setPositions] = useState({});
+  const [frameUrl, setFrameUrl] = useState(null);
+  const [frameDims, setFrameDims] = useState(null); // real video pixel size, e.g. {width, height}
+  const [positions, setPositions] = useState({});   // table.id -> {xPct, yPct} for display only
+  const [loadingFrame, setLoadingFrame] = useState(false);
   const containerRef = useRef(null);
-  const fileInputRef = useRef(null);
 
   const safeTables = Array.isArray(tables) ? tables : [];
   const safeSelectedId = selectedTableId || safeTables[0]?.id || '';
-  const activeTable = safeTables.find(t => t.id === safeSelectedId);
 
-  // Load saved positions
-  React.useEffect(() => {
+  // Load saved positions from each table's existing x/y (percentage-based,
+  // used only for rendering the marker on top of the frame preview).
+  useEffect(() => {
     const initial = {};
     safeTables.forEach(t => {
-      if (t.x && t.y) initial[t.id] = { x: t.x, y: t.y };
+      if (t.x != null && t.y != null) initial[t.id] = { xPct: t.x, yPct: t.y };
     });
     setPositions(initial);
   }, [tables]);
 
-  const handleFloorPlanUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setFloorPlan(URL.createObjectURL(file));
-      setFloorPlanFileName(file.name);
-      toast.success('Floor plan uploaded successfully');
+  const loadFrame = async () => {
+    setLoadingFrame(true);
+    try {
+      const [frameRes, dimsRes] = await Promise.all([
+        fetch('/api/detection/frame'),
+        fetch('/api/detection/frame/dimensions'),
+      ]);
+      if (!frameRes.ok) throw new Error((await frameRes.json()).error || 'No video uploaded yet');
+
+      const blob = await frameRes.blob();
+      setFrameUrl(URL.createObjectURL(blob));
+
+      if (dimsRes.ok) setFrameDims(await dimsRes.json());
+    } catch (err) {
+      toast.error(err.message, { position: 'top-center', autoClose: 4000, theme: 'dark' });
+    } finally {
+      setLoadingFrame(false);
+    }
+  };
+
+  // Grab a frame automatically once a video exists, so the admin doesn't
+  // have to know to click "Refresh Frame" first.
+  useEffect(() => { loadFrame(); }, []);
+
+  const saveTableRegion = async (tableId, xPct, yPct) => {
+    if (!frameDims) {
+      toast.error('Load a video frame first (see System Settings).', {
+        position: 'top-center', autoClose: 4000, theme: 'dark',
+      });
+      return;
+    }
+
+    // Convert the click's on-screen percentage into real video pixel
+    // coordinates, then draw a fixed-size box around that point — this is
+    // the actual region the backend's RegionMapper will test persons against.
+    const cx = Math.round((xPct / 100) * frameDims.width);
+    const cy = Math.round((yPct / 100) * frameDims.height);
+    const points = [
+      [Math.max(0, cx - REGION_HALF_SIZE_PX), Math.max(0, cy - REGION_HALF_SIZE_PX)],
+      [Math.min(frameDims.width, cx + REGION_HALF_SIZE_PX), Math.max(0, cy - REGION_HALF_SIZE_PX)],
+      [Math.min(frameDims.width, cx + REGION_HALF_SIZE_PX), Math.min(frameDims.height, cy + REGION_HALF_SIZE_PX)],
+      [Math.max(0, cx - REGION_HALF_SIZE_PX), Math.min(frameDims.height, cy + REGION_HALF_SIZE_PX)],
+    ];
+
+    try {
+      const res = await fetch(`/api/tables/${tableId}/calibration`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ points }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error || 'Failed to save region');
+    } catch (err) {
+      toast.error(err.message, { position: 'top-center', autoClose: 4000, theme: 'dark' });
     }
   };
 
   const handleContainerClick = (e) => {
-    if (!containerRef.current || !safeSelectedId) return;
+    if (!containerRef.current || !safeSelectedId || !frameUrl) return;
 
     const rect = containerRef.current.getBoundingClientRect();
-    const x = Math.round(((e.clientX - rect.left) / rect.width) * 100);
-    const y = Math.round(((e.clientY - rect.top) / rect.height) * 100);
+    const xPct = Math.round(((e.clientX - rect.left) / rect.width) * 100);
+    const yPct = Math.round(((e.clientY - rect.top) / rect.height) * 100);
 
-    const clampedX = Math.max(5, Math.min(95, x));
-    const clampedY = Math.max(5, Math.min(95, y));
+    const clampedX = Math.max(2, Math.min(98, xPct));
+    const clampedY = Math.max(2, Math.min(98, yPct));
 
-    setPositions(prev => ({ ...prev, [safeSelectedId]: { x: clampedX, y: clampedY } }));
-
+    setPositions(prev => ({ ...prev, [safeSelectedId]: { xPct: clampedX, yPct: clampedY } }));
     setTables(prev => prev.map(t =>
       t.id === safeSelectedId ? { ...t, x: clampedX, y: clampedY } : t
     ));
-  };
-
-  // Drag & Drop
-  const handleDragStart = (e, tableId) => {
-    e.dataTransfer.setData('tableId', tableId);
-  };
-
-  const handleDrop = (e) => {
-    e.preventDefault();
-    const tableId = e.dataTransfer.getData('tableId');
-    if (!tableId || !containerRef.current) return;
-
-    const rect = containerRef.current.getBoundingClientRect();
-    const x = Math.round(((e.clientX - rect.left) / rect.width) * 100);
-    const y = Math.round(((e.clientY - rect.top) / rect.height) * 100);
-
-    const clampedX = Math.max(5, Math.min(95, x));
-    const clampedY = Math.max(5, Math.min(95, y));
-
-    setPositions(prev => ({ ...prev, [tableId]: { x: clampedX, y: clampedY } }));
-    setTables(prev => prev.map(t =>
-      t.id === tableId ? { ...t, x: clampedX, y: clampedY } : t
-    ));
+    saveTableRegion(safeSelectedId, clampedX, clampedY);
   };
 
   const handleSave = () => {
-    toast.success('Floor plan calibration saved successfully!', {
-      position: "top-center",
-      autoClose: 3000,
-      theme: "dark"
+    toast.success('All table positions are saved as you place them.', {
+      position: 'top-center', autoClose: 3000, theme: 'dark',
     });
   };
 
@@ -101,20 +131,18 @@ const CameraCalibration = ({ tables = [], setTables, selectedTableId, setSelecte
     <div className="p-8 space-y-8 w-full max-w-7xl">
       <AdminTopbar
         title="Camera Calibration"
-        subtitle="Upload floor plan and position tables visually"
+        subtitle="Click each table's spot on the actual detection video frame"
       />
 
-      {/* Main Floor Plan Area - Full Width */}
+      {/* Main Frame Area - Full Width */}
       <div
         ref={containerRef}
         onClick={handleContainerClick}
-        onDragOver={(e) => e.preventDefault()}
-        onDrop={handleDrop}
         className="bg-slate-900 rounded-3xl border border-slate-800 overflow-hidden relative min-h-[560px] flex items-center justify-center cursor-crosshair"
       >
-        {floorPlan ? (
+        {frameUrl ? (
           <>
-            <img src={floorPlan} alt="Floor Plan" className="max-h-full max-w-full object-contain" />
+            <img src={frameUrl} alt="Video frame" className="max-h-full max-w-full object-contain" />
 
             {/* Positioned Tables */}
             {safeTables.map(table => {
@@ -124,10 +152,8 @@ const CameraCalibration = ({ tables = [], setTables, selectedTableId, setSelecte
               return (
                 <div
                   key={table.id}
-                  draggable
-                  onDragStart={(e) => handleDragStart(e, table.id)}
-                  className={`absolute w-9 h-9 -translate-x-1/2 -translate-y-1/2 rounded-2xl border-2 flex items-center justify-center text-xs font-bold shadow-xl transition-all hover:scale-110 cursor-grab active:cursor-grabbing ${table.id === safeSelectedId ? 'border-blue-500 bg-blue-600' : 'border-white/70 bg-slate-800'}`}
-                  style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
+                  className={`absolute w-9 h-9 -translate-x-1/2 -translate-y-1/2 rounded-2xl border-2 flex items-center justify-center text-xs font-bold shadow-xl transition-all ${table.id === safeSelectedId ? 'border-blue-500 bg-blue-600' : 'border-white/70 bg-slate-800'}`}
+                  style={{ left: `${pos.xPct}%`, top: `${pos.yPct}%` }}
                 >
                   {table.id}
                 </div>
@@ -137,35 +163,43 @@ const CameraCalibration = ({ tables = [], setTables, selectedTableId, setSelecte
         ) : (
           <div className="text-center">
             <Upload size={64} className="mx-auto mb-6 text-slate-600" />
-            <p className="text-xl text-slate-400">No floor plan uploaded yet</p>
+            <p className="text-xl text-slate-400">
+              {loadingFrame ? 'Loading frame…' : 'No detection video uploaded yet'}
+            </p>
+            <p className="mt-2 text-sm text-slate-500">
+              Upload a sample video in System Settings first, then come back here.
+            </p>
             <button
-              onClick={() => fileInputRef.current.click()}
-              className="mt-6 px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-xl text-white font-medium"
+              onClick={loadFrame}
+              disabled={loadingFrame}
+              className="mt-6 px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-xl text-white font-medium disabled:opacity-50"
             >
-              Upload Floor Plan Image
+              {loadingFrame ? 'Loading…' : 'Try Loading Frame Again'}
             </button>
           </div>
         )}
-
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          onChange={handleFloorPlanUpload}
-          className="hidden"
-        />
       </div>
 
       {/* Bottom Controls */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Left - Instructions */}
         <div className="bg-slate-900 rounded-2xl border border-slate-800 p-6">
-          <h3 className="text-white font-semibold mb-4">How to Position Tables</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-white font-semibold">How to Position Tables</h3>
+            <button
+              onClick={loadFrame}
+              disabled={loadingFrame}
+              title="Refresh Frame"
+              className="flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-800 disabled:opacity-50"
+            >
+              <RefreshCw size={14} className={loadingFrame ? 'animate-spin' : ''} /> Refresh Frame
+            </button>
+          </div>
           <ol className="space-y-3 text-slate-400 text-[15px]">
-            <li>1. Upload your restaurant floor plan above</li>
+            <li>1. Upload a detection video in System Settings first</li>
             <li>2. Select a table from the list on the right</li>
-            <li>3. Click anywhere on the floor plan to place it</li>
-            <li>4. Drag the table markers to fine-tune position</li>
+            <li>3. Click that table's spot on the video frame above</li>
+            <li>4. The region saves automatically — click the next table and repeat</li>
           </ol>
         </div>
 
@@ -192,7 +226,7 @@ const CameraCalibration = ({ tables = [], setTables, selectedTableId, setSelecte
           onClick={handleSave}
           className="px-10 py-4 bg-blue-600 hover:bg-blue-700 rounded-2xl text-white font-semibold flex items-center justify-center gap-3 text-lg shadow-lg min-w-[300px]"
         >
-          <Save size={22} /> Save All Positions
+          <Save size={22} /> Done Positioning Tables
         </button>
       </div>
 
