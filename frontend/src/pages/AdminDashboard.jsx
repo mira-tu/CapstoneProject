@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { LayoutDashboard, CheckCircle2, Users, Grid2x2, AlertTriangle, CombineIcon } from 'lucide-react';
 import TableCard from '../components/table/TableCard';
 import AdminTopbar from '../layouts/AdminTopbar';
@@ -30,8 +30,10 @@ const KpiCard = ({ title, value, icon, color }) => {
 /**
  * AdminDashboard
  *
- * Live occupancy overview page.
- * Shows KPI summary cards and a grid of TableCards for the floor plan.
+ * Live occupancy dashboard with integrated video feed.
+ * Left side: Live camera feed showing real-time detection input
+ * Right side: KPI metrics and occupancy summary
+ * Bottom: Table grid showing all current table statuses
  *
  * @param {Array}    tables          - Current table state array.
  * @param {boolean}  simEnabled      - Whether the detection feed polling is active.
@@ -41,6 +43,18 @@ const KpiCard = ({ title, value, icon, color }) => {
 const AdminDashboard = ({ tables, simEnabled = false, onToggleSim, detectionStatus }) => {
   const engineRunning = simEnabled && detectionStatus?.running;
   const engineError = detectionStatus?.error;
+  const [liveVideoUrl, setLiveVideoUrl] = useState(null);
+
+  // Fetch the currently-uploaded video URL
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/detection/settings')
+      .then(res => res.json())
+      .then(data => { if (!cancelled) setLiveVideoUrl(data.videoUrl || null); })
+      .catch(() => { if (!cancelled) setLiveVideoUrl(null); });
+    return () => { cancelled = true; };
+  }, []);
+
   const vacant = tables.filter(t => t.status === 'vacant').length;
   const partial = tables.filter(t => t.status === 'partial').length;
   const full = tables.filter(t => t.status === 'full').length;
@@ -51,10 +65,10 @@ const AdminDashboard = ({ tables, simEnabled = false, onToggleSim, detectionStat
   const floor1Tables = tables.filter(t => t.floor === 1 || !t.floor);
 
   return (
-    <div className="p-8">
+    <div className="flex flex-col h-full p-8 gap-6 bg-slate-50">
       <AdminTopbar
-        title="Live Occupancy Monitoring"
-        subtitle="Real-time floor plan updates powered by YOLOv8."
+        title="Live Occupancy Dashboard"
+        subtitle="Real-time monitoring with live camera feed and YOLOv8 detection."
         action={
           <button
             onClick={onToggleSim}
@@ -70,30 +84,94 @@ const AdminDashboard = ({ tables, simEnabled = false, onToggleSim, detectionStat
               )}
               <span className={`relative inline-flex rounded-full h-3 w-3 ${engineRunning ? 'bg-green-600' : 'bg-slate-400'}`} />
             </span>
-            {engineRunning ? 'YOLOv8 Detection Active' : simEnabled ? 'Waiting for Detection Engine' : 'Detection Paused'}
+            {engineRunning ? 'Detection Active' : simEnabled ? 'Waiting for Engine' : 'Detection Paused'}
           </button>
         }
       />
 
       {engineError && (
-        <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           Detection engine error: {engineError}
         </div>
       )}
 
-      {/* KPI row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6 gap-4 mb-8">
-        <KpiCard title="Total Tables" value={tables.length} icon={<LayoutDashboard />} color="blue" />
-        <KpiCard title="Available" value={vacant} icon={<CheckCircle2 />} color="green" />
-        <KpiCard title="Partial" value={partial} icon={<Users />} color="yellow" />
-        <KpiCard title="Full" value={full} icon={<Grid2x2 />} color="red" />
-        <KpiCard title="Merged" value={merged} icon={<CombineIcon />} color="orange" />
-        <KpiCard title="Reserved / Maintenance" value={reserved + maintenance} icon={<AlertTriangle />} color="gray" />
+      {/* Main content: Video feed + KPIs side by side */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1">
+        {/* LEFT: Live Video Feed */}
+        <div className="lg:col-span-2">
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden h-full flex flex-col">
+            <div className="bg-slate-700 px-6 py-4 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-white">Live Camera Feed</h3>
+              {engineRunning && (
+                <div className="flex items-center gap-2">
+                  <span className="inline-block h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+                  <span className="text-xs font-semibold text-red-300 uppercase tracking-[0.1em]">Live</span>
+                </div>
+              )}
+            </div>
+            <div className="flex-1 min-h-0 bg-slate-900 flex items-center justify-center relative">
+              {liveVideoUrl ? (
+                <>
+                  <video
+                    key={liveVideoUrl}
+                    src={liveVideoUrl}
+                    className="w-full h-full object-cover"
+                    muted
+                    loop
+                    autoPlay
+                    playsInline
+                  />
+                  <div className="absolute bottom-4 right-4 bg-slate-800/80 backdrop-blur px-3 py-2 rounded-lg text-xs font-semibold text-slate-100 border border-slate-600">
+                    {engineRunning ? 'Detection: ON' : 'Detection: OFF'}
+                  </div>
+                </>
+              ) : (
+                <div className="flex flex-col items-center gap-3 text-slate-500">
+                  <div className="h-16 w-16 rounded-full border-2 border-slate-600 border-t-blue-400 animate-spin" />
+                  <span className="text-sm font-medium">Loading camera feed...</span>
+                  <span className="text-xs text-slate-600">Upload a video in Settings to begin</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* RIGHT: KPI Cards */}
+        <div className="flex flex-col gap-4">
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+            <p className="text-xs text-slate-500 font-semibold uppercase tracking-[0.15em]">Total Tables</p>
+            <p className="text-4xl font-bold text-slate-800 mt-2">{tables.length}</p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+              <p className="text-xs text-slate-500 font-semibold uppercase tracking-[0.1em]">Available</p>
+              <p className="text-3xl font-bold text-green-600 mt-1">{vacant}</p>
+            </div>
+            <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+              <p className="text-xs text-slate-500 font-semibold uppercase tracking-[0.1em]">Partial</p>
+              <p className="text-3xl font-bold text-yellow-600 mt-1">{partial}</p>
+            </div>
+            <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+              <p className="text-xs text-slate-500 font-semibold uppercase tracking-[0.1em]">Full</p>
+              <p className="text-3xl font-bold text-red-600 mt-1">{full}</p>
+            </div>
+            <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+              <p className="text-xs text-slate-500 font-semibold uppercase tracking-[0.1em]">Merged</p>
+              <p className="text-3xl font-bold text-orange-600 mt-1">{merged}</p>
+            </div>
+          </div>
+
+          <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+            <p className="text-xs text-slate-500 font-semibold uppercase tracking-[0.1em]">Reserved / Maint.</p>
+            <p className="text-3xl font-bold text-slate-600 mt-1">{reserved + maintenance}</p>
+          </div>
+        </div>
       </div>
 
-      {/* Floor plan grid */}
+      {/* BOTTOM: Table Grid */}
       <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-        <h3 className="text-lg font-semibold text-slate-700 mb-6 border-b pb-2">Main Dining Area Floor Plan</h3>
+        <h3 className="text-lg font-semibold text-slate-700 mb-6 border-b pb-2">Table Status Grid</h3>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {floor1Tables.map(table => (
             <TableCard key={table.id} table={table} isAdmin />
