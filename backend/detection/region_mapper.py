@@ -90,10 +90,27 @@ class RegionMapper:
 
         for person in persons:
             cx, cy = person["cx"], person["cy"]
+            person_x1 = person.get("x1", cx)
+            person_y1 = person.get("y1", cy)
+            person_x2 = person.get("x2", cx)
+            person_y2 = person.get("y2", cy)
             for table_id, polygon_points in self.regions.items():
                 poly = np.array(polygon_points, dtype=np.float32)
-                # pointPolygonTest returns > 0 if the point is inside the polygon.
-                if cv2.pointPolygonTest(poly, (cx, cy), measureDist=False) >= 0:
+                # pointPolygonTest returns >= 0 if the point is inside or on the polygon.
+                center_inside = cv2.pointPolygonTest(poly, (cx, cy), measureDist=False) >= 0
+
+                # Seated diners are often partly beside the table, so center-only
+                # matching is too strict. Also count a person when their detected
+                # body box overlaps the calibrated table/seating region.
+                x, y, w, h = cv2.boundingRect(poly.astype(np.int32))
+                region_x1, region_y1 = x, y
+                region_x2, region_y2 = x + w, y + h
+                overlaps_region = (
+                    person_x1 <= region_x2 and person_x2 >= region_x1 and
+                    person_y1 <= region_y2 and person_y2 >= region_y1
+                )
+
+                if center_inside or overlaps_region:
                     assignments[table_id].append(person)
                     break  # a person belongs to at most one table
 

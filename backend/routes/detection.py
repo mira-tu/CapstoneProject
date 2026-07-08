@@ -15,6 +15,7 @@ Endpoints:
 
 import os
 import time
+import numpy as np
 
 from flask import Blueprint, jsonify, request
 from werkzeug.utils import secure_filename
@@ -195,13 +196,14 @@ def get_settings():
 @detection_bp.get("/frame/annotated")
 def get_annotated_frame():
     """
-    Return a single frame from the video WITH detection annotations overlaid:
+    Return the current frame being processed by the detection loop WITH annotations:
     - Green boxes around detected persons
     - Blue boxes around detected tables
     - Red region polygons for table calibration areas
     - Table status labels (available/occupied/merged/reserved/maintenance)
     
-    This is used for real-time visualization of what the detection engine sees.
+    This is used for real-time visualization of what the detection engine sees,
+    synchronized with the video playback in the detection service.
     """
     import cv2
     from flask import Response
@@ -210,37 +212,35 @@ def get_annotated_frame():
         return jsonify({"error": "No video uploaded yet."}), 400
 
     try:
-        cap = cv2.VideoCapture(detection_service.video_path)
-        if not cap.isOpened():
-            return jsonify({"error": "Could not open video file."}), 500
-            
-        ok, frame = cap.read()
-        cap.release()
+        # Get the current frame being processed by the detection loop
+        frame = detection_service.get_current_frame()
+        
+        # Fallback: if no frame available yet, read first frame
+        if frame is None:
+            cap = cv2.VideoCapture(detection_service.video_path)
+            if not cap.isOpened():
+                return jsonify({"error": "Could not open video file."}), 500
+            ok, frame = cap.read()
+            cap.release()
+            if not ok:
+                return jsonify({"error": "Could not read a frame from the video."}), 500
 
-        if not ok:
-            return jsonify({"error": "Could not read a frame from the video."}), 500
+        # Draw the latest YOLO results already produced by the background loop.
+        # Re-running YOLO here would double CPU work and make the public feed slow.
+        detections = detection_service.get_current_detections()
 
-        # Get latest detection results
-        # Only draw person/table boxes if detection is running
-        if detection_service.is_running() and detection_service.detector:
-            try:
-                detections = detection_service.detector.detect_all(frame)
-                
-                # Draw person detection boxes (green)
-                for person in detections.get("persons", []):
-                    x1, y1, x2, y2 = int(person["x1"]), int(person["y1"]), int(person["x2"]), int(person["y2"])
-                    conf = person["conf"]
-                    cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)  # Green
-                    cv2.putText(frame, f"Person {conf:.2f}", (x1, max(0, y1 - 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+        # Draw person detection boxes (green)
+        for person in detections.get("persons", []):
+            x1, y1, x2, y2 = int(person["x1"]), int(person["y1"]), int(person["x2"]), int(person["y2"])
+            conf = person["conf"]
+            cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)  # Green
+            cv2.putText(frame, f"Person {conf:.2f}", (x1, max(0, y1 - 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
 
-                # Draw dining table boxes (blue)
-                for table in detections.get("tables", []):
-                    x1, y1, x2, y2 = int(table["x1"]), int(table["y1"]), int(table["x2"]), int(table["y2"])
-                    cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 0), 2)  # Blue
-                    cv2.putText(frame, "Table", (x1, max(0, y1 - 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
-            except Exception as e:
-                # If detection fails, still show the video with just the calibration
-                pass
+        # Draw dining table boxes (blue)
+        for table in detections.get("tables", []):
+            x1, y1, x2, y2 = int(table["x1"]), int(table["y1"]), int(table["x2"]), int(table["y2"])
+            cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 0), 2)  # Blue
+            cv2.putText(frame, "Table", (x1, max(0, y1 - 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
 
         # Draw calibrated table regions (red polygons) with status
         status = detection_service.get_status()
@@ -254,8 +254,9 @@ def get_annotated_frame():
             region = detection_service.region_mapper.regions.get(table_id)
             if region and len(region) >= 3:
                 # Draw region bounds (red)
-                points = [(int(p["x"]), int(p["y"])) for p in region]
-                pts = [points]
+                # Region is stored as [[x, y], [x, y], ...] - list of [x, y] pairs
+                points = [(int(p[0]), int(p[1])) for p in region]
+                pts = [np.array(points, dtype=np.int32)]
                 cv2.polylines(frame, pts, True, (0, 0, 255), 2)  # Red
 
                 # Draw status label
@@ -272,15 +273,25 @@ def get_annotated_frame():
                     "maintenance": (128, 128, 128),  # Gray
                 }
                 color = status_colors.get(table_status, (255, 255, 255))
+                status_label = {
+                    "vacant": "available",
+                    "partial": "partially occupied",
+                    "full": "occupied",
+                }.get(table_status, table_status)
 
-                label = f"{table_id}: {person_count}/{capacity} ({table_status})"
+                label = f"{table_id}: {person_count}/{capacity} ({status_label})"
                 cv2.putText(frame, label, (min_x, max(0, min_y - 10)), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
 
         ok, buffer = cv2.imencode(".jpg", frame)
         if not ok:
             return jsonify({"error": "Could not encode annotated frame as JPEG."}), 500
 
-        return Response(buffer.tobytes(), mimetype="image/jpeg")
+        # Return with cache-busting headers to ensure fresh frames each time
+        response = Response(buffer.tobytes(), mimetype="image/jpeg")
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
 
     except Exception as exc:
         import traceback

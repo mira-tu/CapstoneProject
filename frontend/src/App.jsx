@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Route, Routes } from 'react-router-dom';
 
 // Layouts
@@ -42,7 +42,13 @@ export default function App() {
   // Owned here so both AdminSettings (editor) and PublicDashboard (consumer)
   // share the same live state. "Applied" state is what PublicDashboard reads;
   // AdminSettings edits a local draft and pushes it here on "Apply Changes".
-  const [cmsConfig, setCmsConfig] = useState(DEFAULT_CMS_CONFIG);
+  const [cmsConfig, setCmsConfig] = useState(() => {
+    try {
+      return { ...DEFAULT_CMS_CONFIG, ...JSON.parse(localStorage.getItem('tableyeCmsConfig') || '{}') };
+    } catch {
+      return DEFAULT_CMS_CONFIG;
+    }
+  });
 
   // ── Shared table state ────────────────────────────────────────────────────
   // x, y = position on the floor plan canvas as a % of the container.
@@ -60,6 +66,10 @@ export default function App() {
   // ── Hooks ─────────────────────────────────────────────────────────────────
   const { logs, addLog }   = useOccupancyLog();
   const detectionStatus    = useDetectionFeed(simEnabled, setTables, addLog);
+
+  useEffect(() => {
+    localStorage.setItem('tableyeCmsConfig', JSON.stringify(cmsConfig));
+  }, [cmsConfig]);
 
   // ── Manual override handlers ──────────────────────────────────────────────
   const handleStatusOverride = (id, status) => {

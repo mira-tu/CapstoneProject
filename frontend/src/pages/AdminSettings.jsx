@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Camera, MonitorPlay, Sliders, Play, Pause, Save, LayoutTemplate, Edit, Upload, Trash2, Video } from 'lucide-react';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -41,6 +41,48 @@ const AdminSettings = ({ simEnabled = false, onToggleSim, cmsConfig, onCmsSave }
   const [cmsDraft, setCmsDraft] = useState(cmsConfig);
 
   const [isCmsOpen, setIsCmsOpen] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadCurrentDetectionState = async () => {
+      try {
+        const [settingsRes, statusRes] = await Promise.all([
+          fetch('/api/detection/settings'),
+          fetch('/api/detection/status'),
+        ]);
+
+        if (settingsRes.ok) {
+          const data = await settingsRes.json();
+          if (!cancelled) {
+            setSettings({
+              rtspUrl: data.rtspUrl || '',
+              fps: String(data.fps || 15),
+              confidence: Math.round((data.confidence ?? 0.75) * 100),
+            });
+
+            if (data.videoUrl) {
+              setVideoUrl(data.videoUrl);
+              setVideoFileName(data.videoUrl.split('/').pop() || 'Uploaded video');
+            }
+          }
+        }
+
+        if (statusRes.ok) {
+          const data = await statusRes.json();
+          if (!cancelled) setEngineRunning(Boolean(data.running));
+        }
+      } catch {
+        // Keep the settings page usable even if the backend is not running yet.
+      }
+    };
+
+    loadCurrentDetectionState();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Reset the draft to the live config whenever the editor is (re)opened,
   // so stale edits from a previous cancelled session don't resurface.
@@ -122,16 +164,21 @@ const AdminSettings = ({ simEnabled = false, onToggleSim, cmsConfig, onCmsSave }
   const handleLogoUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
-      const previewUrl = URL.createObjectURL(file);
-      setCmsDraft(prev => ({ ...prev, logo: previewUrl }));
+      readImageAsDataUrl(file, logo => setCmsDraft(prev => ({ ...prev, logo })));
     }
   };
 
   const handleBgImageUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
-      const previewUrl = URL.createObjectURL(file);
-      setCmsDraft(prev => ({ ...prev, backgroundImage: previewUrl }));
+      readImageAsDataUrl(file, backgroundImage => setCmsDraft(prev => ({ ...prev, backgroundImage })));
+    }
+  };
+
+  const handleFloorPlanUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      readImageAsDataUrl(file, floorPlanImage => setCmsDraft(prev => ({ ...prev, floorPlanImage })));
     }
   };
 
@@ -141,6 +188,10 @@ const AdminSettings = ({ simEnabled = false, onToggleSim, cmsConfig, onCmsSave }
 
   const removeBgImage = () => {
     setCmsDraft(prev => ({ ...prev, backgroundImage: null }));
+  };
+
+  const removeFloorPlan = () => {
+    setCmsDraft(prev => ({ ...prev, floorPlanImage: null }));
   };
 
   const handleSave = async () => {
@@ -364,7 +415,7 @@ const AdminSettings = ({ simEnabled = false, onToggleSim, cmsConfig, onCmsSave }
               <div>
                 <h4 className="font-semibold text-slate-700 mb-4 flex items-center gap-2 border-b pb-2">Media Assets</h4>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                   {/* Logo */}
                   <div>
                     <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">Logo</label>
@@ -408,6 +459,30 @@ const AdminSettings = ({ simEnabled = false, onToggleSim, cmsConfig, onCmsSave }
                       )}
                       <input type="file" accept="image/*" onChange={handleBgImageUpload} className="hidden" id="bg-upload" />
                       <label htmlFor="bg-upload" className="cursor-pointer text-blue-600 text-sm font-medium hover:underline mt-2 block">
+                        Choose Image
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Floor Plan */}
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">Floor Plan Image</label>
+                    <div className="border-2 border-dashed border-slate-300 rounded-2xl p-6 text-center hover:border-blue-400 transition">
+                      {cmsDraft.floorPlanImage ? (
+                        <div className="relative">
+                          <img src={cmsDraft.floorPlanImage} alt="Floor plan preview" className="w-full h-32 object-contain rounded-xl bg-slate-100" />
+                          <button onClick={removeFloorPlan} className="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-full hover:bg-red-600">
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <Upload className="mx-auto text-slate-400 mb-2" size={32} />
+                          <p className="text-sm text-slate-600">Upload floor plan</p>
+                        </>
+                      )}
+                      <input type="file" accept="image/*" onChange={handleFloorPlanUpload} className="hidden" id="floor-plan-upload" />
+                      <label htmlFor="floor-plan-upload" className="cursor-pointer text-blue-600 text-sm font-medium hover:underline mt-2 block">
                         Choose Image
                       </label>
                     </div>
@@ -492,6 +567,12 @@ const AdminSettings = ({ simEnabled = false, onToggleSim, cmsConfig, onCmsSave }
       <ToastContainer position="top-center" autoClose={3000} theme="dark" />
     </div>
   );
+};
+
+const readImageAsDataUrl = (file, onLoad) => {
+  const reader = new FileReader();
+  reader.onload = () => onLoad(reader.result);
+  reader.readAsDataURL(file);
 };
 
 export default AdminSettings;

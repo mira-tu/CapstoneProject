@@ -8,7 +8,9 @@ import AdminTopbar from '../layouts/AdminTopbar';
 // clicked point. This is a simple stand-in for full polygon drawing —
 // good enough to give the detection engine a real region per table
 // without needing a 4-corner drag UI.
-const REGION_HALF_SIZE_PX = 80;
+const REGION_HALF_SIZE_PX = 180;
+const DEFAULT_FRAME_WIDTH = 3840;
+const DEFAULT_FRAME_HEIGHT = 2160;
 
 /**
  * CameraCalibration
@@ -32,21 +34,30 @@ const CameraCalibration = ({ tables = [], setTables, selectedTableId, setSelecte
   const [frameUrl, setFrameUrl] = useState(null);
   const [frameDims, setFrameDims] = useState(null); // real video pixel size, e.g. {width, height}
   const [positions, setPositions] = useState({});   // table.id -> {xPct, yPct} for display only
+  const [regionSizes, setRegionSizes] = useState({}); // table.id -> {widthPct, heightPct}
   const [loadingFrame, setLoadingFrame] = useState(false);
   const containerRef = useRef(null);
 
   const safeTables = Array.isArray(tables) ? tables : [];
   const safeSelectedId = selectedTableId || safeTables[0]?.id || '';
+  const regionWidthPct = ((REGION_HALF_SIZE_PX * 2) / (frameDims?.width || DEFAULT_FRAME_WIDTH)) * 100;
+  const regionHeightPct = ((REGION_HALF_SIZE_PX * 2) / (frameDims?.height || DEFAULT_FRAME_HEIGHT)) * 100;
 
   // Load saved positions from each table's existing x/y (percentage-based,
   // used only for rendering the marker on top of the frame preview).
   useEffect(() => {
     const initial = {};
+    const initialSizes = {};
     safeTables.forEach(t => {
       if (t.x != null && t.y != null) initial[t.id] = { xPct: t.x, yPct: t.y };
+      initialSizes[t.id] = {
+        widthPct: t.regionWidthPct || regionWidthPct,
+        heightPct: t.regionHeightPct || regionHeightPct,
+      };
     });
     setPositions(initial);
-  }, [tables]);
+    setRegionSizes(initialSizes);
+  }, [tables, regionWidthPct, regionHeightPct]);
 
   const loadFrame = async () => {
     setLoadingFrame(true);
@@ -72,7 +83,7 @@ const CameraCalibration = ({ tables = [], setTables, selectedTableId, setSelecte
   // have to know to click "Refresh Frame" first.
   useEffect(() => { loadFrame(); }, []);
 
-  const saveTableRegion = async (tableId, xPct, yPct) => {
+  const saveTableRegion = async (tableId, xPct, yPct, widthPct = regionWidthPct, heightPct = regionHeightPct) => {
     if (!frameDims) {
       toast.error('Load a video frame first (see System Settings).', {
         position: 'top-center', autoClose: 4000, theme: 'dark',
@@ -85,11 +96,13 @@ const CameraCalibration = ({ tables = [], setTables, selectedTableId, setSelecte
     // the actual region the backend's RegionMapper will test persons against.
     const cx = Math.round((xPct / 100) * frameDims.width);
     const cy = Math.round((yPct / 100) * frameDims.height);
+    const halfWidthPx = Math.round(((widthPct / 100) * frameDims.width) / 2);
+    const halfHeightPx = Math.round(((heightPct / 100) * frameDims.height) / 2);
     const points = [
-      [Math.max(0, cx - REGION_HALF_SIZE_PX), Math.max(0, cy - REGION_HALF_SIZE_PX)],
-      [Math.min(frameDims.width, cx + REGION_HALF_SIZE_PX), Math.max(0, cy - REGION_HALF_SIZE_PX)],
-      [Math.min(frameDims.width, cx + REGION_HALF_SIZE_PX), Math.min(frameDims.height, cy + REGION_HALF_SIZE_PX)],
-      [Math.max(0, cx - REGION_HALF_SIZE_PX), Math.min(frameDims.height, cy + REGION_HALF_SIZE_PX)],
+      [Math.max(0, cx - halfWidthPx), Math.max(0, cy - halfHeightPx)],
+      [Math.min(frameDims.width, cx + halfWidthPx), Math.max(0, cy - halfHeightPx)],
+      [Math.min(frameDims.width, cx + halfWidthPx), Math.min(frameDims.height, cy + halfHeightPx)],
+      [Math.max(0, cx - halfWidthPx), Math.min(frameDims.height, cy + halfHeightPx)],
     ];
 
     try {
@@ -115,10 +128,53 @@ const CameraCalibration = ({ tables = [], setTables, selectedTableId, setSelecte
     const clampedY = Math.max(2, Math.min(98, yPct));
 
     setPositions(prev => ({ ...prev, [safeSelectedId]: { xPct: clampedX, yPct: clampedY } }));
+    setRegionSizes(prev => ({
+      ...prev,
+      [safeSelectedId]: prev[safeSelectedId] || { widthPct: regionWidthPct, heightPct: regionHeightPct },
+    }));
     setTables(prev => prev.map(t =>
       t.id === safeSelectedId ? { ...t, x: clampedX, y: clampedY } : t
     ));
-    saveTableRegion(safeSelectedId, clampedX, clampedY);
+    const size = regionSizes[safeSelectedId] || { widthPct: regionWidthPct, heightPct: regionHeightPct };
+    saveTableRegion(safeSelectedId, clampedX, clampedY, size.widthPct, size.heightPct);
+  };
+
+  const startResize = (e, tableId) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const pos = positions[tableId];
+    if (!containerRef.current || !pos) return;
+
+    const handleMove = (moveEvent) => {
+      const rect = containerRef.current.getBoundingClientRect();
+      const pointerX = ((moveEvent.clientX - rect.left) / rect.width) * 100;
+      const pointerY = ((moveEvent.clientY - rect.top) / rect.height) * 100;
+      const nextWidth = Math.max(4, Math.min(80, Math.abs(pointerX - pos.xPct) * 2));
+      const nextHeight = Math.max(4, Math.min(80, Math.abs(pointerY - pos.yPct) * 2));
+
+      setRegionSizes(prev => ({
+        ...prev,
+        [tableId]: { widthPct: nextWidth, heightPct: nextHeight },
+      }));
+    };
+
+    const handleUp = (upEvent) => {
+      const rect = containerRef.current.getBoundingClientRect();
+      const pointerX = ((upEvent.clientX - rect.left) / rect.width) * 100;
+      const pointerY = ((upEvent.clientY - rect.top) / rect.height) * 100;
+      const widthPct = Math.max(4, Math.min(80, Math.abs(pointerX - pos.xPct) * 2));
+      const heightPct = Math.max(4, Math.min(80, Math.abs(pointerY - pos.yPct) * 2));
+
+      setTables(prev => prev.map(t =>
+        t.id === tableId ? { ...t, regionWidthPct: widthPct, regionHeightPct: heightPct } : t
+      ));
+      saveTableRegion(tableId, pos.xPct, pos.yPct, widthPct, heightPct);
+      window.removeEventListener('pointermove', handleMove);
+      window.removeEventListener('pointerup', handleUp);
+    };
+
+    window.addEventListener('pointermove', handleMove);
+    window.addEventListener('pointerup', handleUp);
   };
 
   const handleSave = () => {
@@ -148,14 +204,39 @@ const CameraCalibration = ({ tables = [], setTables, selectedTableId, setSelecte
             {safeTables.map(table => {
               const pos = positions[table.id];
               if (!pos) return null;
+              const size = regionSizes[table.id] || { widthPct: regionWidthPct, heightPct: regionHeightPct };
+              const isSelected = table.id === safeSelectedId;
 
               return (
                 <div
                   key={table.id}
-                  className={`absolute w-9 h-9 -translate-x-1/2 -translate-y-1/2 rounded-2xl border-2 flex items-center justify-center text-xs font-bold shadow-xl transition-all ${table.id === safeSelectedId ? 'border-blue-500 bg-blue-600' : 'border-white/70 bg-slate-800'}`}
-                  style={{ left: `${pos.xPct}%`, top: `${pos.yPct}%` }}
+                  className={`absolute -translate-x-1/2 -translate-y-1/2 border-2 shadow-xl transition-all ${
+                    isSelected
+                      ? 'border-blue-400 bg-blue-500/20'
+                      : 'border-white/70 bg-slate-950/20'
+                  }`}
+                  style={{
+                    left: `${pos.xPct}%`,
+                    top: `${pos.yPct}%`,
+                    width: `${size.widthPct}%`,
+                    height: `${size.heightPct}%`,
+                  }}
                 >
-                  {table.id}
+                  <span className={`absolute left-1 top-1 rounded px-1.5 py-0.5 text-xs font-bold ${
+                    isSelected ? 'bg-blue-600 text-white' : 'bg-slate-900 text-white'
+                  }`}>
+                    {table.id}
+                  </span>
+                  <span className="absolute left-1/2 top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white ring-2 ring-slate-900" />
+                  {isSelected && ['-left-1.5 -top-1.5', '-right-1.5 -top-1.5', '-bottom-1.5 -left-1.5', '-bottom-1.5 -right-1.5'].map(positionClass => (
+                    <button
+                      key={positionClass}
+                      type="button"
+                      onPointerDown={e => startResize(e, table.id)}
+                      className={`absolute h-4 w-4 rounded-sm border border-white bg-blue-500 shadow ${positionClass}`}
+                      title="Resize region"
+                    />
+                  ))}
                 </div>
               );
             })}
@@ -179,6 +260,12 @@ const CameraCalibration = ({ tables = [], setTables, selectedTableId, setSelecte
           </div>
         )}
       </div>
+
+      {frameUrl && (
+        <div className="rounded-2xl border border-blue-500/30 bg-blue-500/10 px-5 py-4 text-sm text-blue-100">
+          Each table marker saves a box-shaped occupancy region. YOLO detects persons in the video, and TABLEYE counts a person for a table when the center of that person detection is inside the table's box.
+        </div>
+      )}
 
       {/* Bottom Controls */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

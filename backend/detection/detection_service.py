@@ -39,7 +39,7 @@ from .table_tracker import TableTracker
 # Process at most this many frames per second. The sample videos are just
 # looping demo footage, not a real-time camera, so we don't need to match
 # the file's native FPS — this keeps CPU inference load predictable.
-PROCESS_FPS = 2
+PROCESS_FPS = 5
 
 
 class DetectionService:
@@ -65,6 +65,8 @@ class DetectionService:
         self._state = {}
         self._running = False
         self._error = None
+        self._current_frame = None  # Latest frame being processed
+        self._current_detections = {"persons": [], "tables": []}
 
     # ── Video source ─────────────────────────────────────────────────────
 
@@ -125,6 +127,22 @@ class DetectionService:
         with self._lock:
             return [dict(v) for v in self._state.values()]
 
+    def get_current_frame(self):
+        """
+        Return the latest frame being processed by the detection loop.
+        Used by the annotated frame endpoint to show synchronized video playback.
+        """
+        with self._lock:
+            return self._current_frame.copy() if self._current_frame is not None else None
+
+    def get_current_detections(self) -> dict:
+        """Return the latest YOLO result produced by the background loop."""
+        with self._lock:
+            return {
+                "persons": [dict(p) for p in self._current_detections.get("persons", [])],
+                "tables": [dict(t) for t in self._current_detections.get("tables", [])],
+            }
+
     # ── Background loop ──────────────────────────────────────────────────
 
     def _run_loop(self):
@@ -148,6 +166,9 @@ class DetectionService:
 
             try:
                 detections = self.detector.detect_all(frame)
+                with self._lock:
+                    self._current_frame = frame.copy()
+                    self._current_detections = detections
                 self._process_detections(detections)
             except Exception as exc:  # keep the loop alive on a bad frame
                 self._error = str(exc)
