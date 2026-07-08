@@ -101,6 +101,7 @@ const PublicDashboard = ({ tables, onViewChange, cmsConfig }) => {
           <div className="flex min-h-0 flex-col gap-3">
             <div className="relative min-h-0 flex-1 rounded-2xl border border-slate-700 bg-slate-900 shadow-lg overflow-hidden">
               <AnnotatedVideoFeed isRunning={detectionRunning} />
+              <VideoStatusRail tables={activeFloor?.tables || []} />
             </div>
             {cms.showOccupancyStats && activeFloor && (
               <div className="grid shrink-0 gap-3 md:grid-cols-3">
@@ -218,6 +219,54 @@ const CustomerStatusPanel = ({ cms }) => {
     </aside>
   );
 };
+
+const VideoStatusRail = ({ tables }) => {
+  const midpoint = Math.ceil(tables.length / 2);
+  const leftTables = tables.slice(0, midpoint);
+  const rightTables = tables.slice(midpoint);
+
+  return (
+    <>
+      <TableRailGroup tables={leftTables} side="left" />
+      <TableRailGroup tables={rightTables} side="right" />
+    </>
+  );
+};
+
+const TableRailGroup = ({ tables, side }) => (
+  <div className={`pointer-events-none absolute bottom-4 top-20 z-20 hidden w-40 flex-col gap-2 lg:flex ${
+    side === 'left' ? 'left-3' : 'right-3'
+  }`}>
+    {tables.map(table => {
+      const label = table.status === 'vacant'
+        ? 'Available'
+        : table.status === 'full'
+          ? 'Occupied'
+          : table.status === 'partial'
+            ? 'Partial'
+            : table.status;
+      const colorClass = table.status === 'vacant'
+        ? 'border-green-400 bg-green-950/90 text-green-100'
+        : table.status === 'partial'
+          ? 'border-yellow-300 bg-yellow-950/90 text-yellow-100'
+          : table.status === 'full'
+            ? 'border-red-400 bg-red-950/90 text-red-100'
+            : 'border-slate-500 bg-slate-900/90 text-slate-100';
+
+      return (
+        <div key={table.id} className={`rounded-xl border-2 px-3 py-2 shadow-lg backdrop-blur ${colorClass}`}>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xl font-black leading-none">{table.id}</span>
+            <span className="text-xs font-black uppercase tracking-wide">{label}</span>
+          </div>
+          <div className="mt-1 flex items-center justify-end text-xs font-bold uppercase tracking-wide opacity-90">
+            <span>{table.occupied || 0}/{table.capacity || 4} seats</span>
+          </div>
+        </div>
+      );
+    })}
+  </div>
+);
 
 const StatTile = ({ label, value, colorClass, textClass }) => (
   <div className={`rounded-2xl border p-4 text-center ${colorClass}`}>
